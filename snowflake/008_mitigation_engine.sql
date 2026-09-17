@@ -1,129 +1,177 @@
--- NEXUS mitigation comparison engine.
--- Compares transparent alternatives after a supplier disruption.
--- It does not declare a universal winner; it exposes cost/protection trade-offs.
+-- NEXUS deterministic mitigation comparison engine.
+--
+-- Each mitigation contributes explicit incremental part units. Those units are
+-- allocated to the same order demand model used by the scenario engine. This
+-- makes protected revenue a consequence of fulfillment capacity, not a score.
 
 USE DATABASE NEXUS_DB;
 
-CREATE OR REPLACE VIEW SCENARIOS.V_MITIGATION_COMPARISON AS
-WITH
-parameters AS (
-    SELECT
-        'SUP-001'::VARCHAR AS failed_supplier_id,
-        14::NUMBER AS duration_days
+CREATE OR REPLACE VIEW SCENARIOS.V_MITIGATION_PART_CAPACITY AS
+WITH p AS (
+    SELECT * FROM SCENARIOS.V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS
 ),
-
 failed_parts AS (
     SELECT DISTINCT sp.part_id
     FROM RAW.SUPPLIER_PARTS sp
-    CROSS JOIN parameters x
-    WHERE sp.supplier_id = x.failed_supplier_id
-      AND sp.qualification_status = 'QUALIFIED'
+    JOIN p ON p.failed_supplier_id = sp.supplier_id
+    WHERE sp.qualification_status = 'QUALIFIED'
 ),
-
-exposed_orders AS (
-    SELECT DISTINCT
-        o.order_id,
-        o.customer_id,
-        o.product_id,
-        o.plant_id,
-        o.quantity,
-        o.order_value
-    FROM RAW.ORDERS o
-    JOIN RAW.PRODUCT_PARTS pp ON pp.product_id = o.product_id
-    JOIN failed_parts fp ON fp.part_id = pp.part_id
-),
-
-base AS (
-    SELECT
-        COUNT(DISTINCT order_id) AS exposed_orders,
-        COUNT(DISTINCT customer_id) AS exposed_customers,
-        COALESCE(SUM(order_value),0) AS exposed_revenue
-    FROM exposed_orders
-),
-
-alternate_capacity AS (
+-- Qualified alternate capacity is capped by the scenario duration.
+alternate AS (
     SELECT
         fp.part_id,
-        SUM(q.max_daily_capacity_units) AS alternate_capacity
+        'ALTERNATE_SUPPLIER' AS mitigation_type,
+        LEAST(
+            SUM(q.max_daily_capacity_units),
+            SUM(q.max_daily_capacity_units) * p.duration_days
+        ) AS incremental_units,
+        SUM(q.max_daily_capacity_units * p.duration_days * q.unit_cost) AS incremental_cost
     FROM failed_parts fp
     JOIN ANALYTICS.QUALIFIED_SUPPLIER_OPTIONS q
       ON q.part_id = fp.part_id
-    CROSS JOIN parameters x
-    WHERE q.supplier_id <> x.failed_supplier_id
-    GROUP BY fp.part_id
+    CROSS JOIN p
+    WHERE q.supplier_id <> p.failed_supplier_id
+    GROUP BY fp.part_id, p.duration_days
 ),
-
-alternate AS (
-    SELECT
-        'ALTERNATE_SUPPLIER' AS mitigation_type,
-        COALESCE(SUM(ac.alternate_capacity),0) AS available_capacity,
-        COALESCE(SUM(ac.alternate_capacity),0) * 14 AS available_units,
-        COALESCE(SUM(q.unit_cost * q.max_daily_capacity_units * 14),0) AS incremental_cost
-    FROM alternate_capacity ac
-    JOIN ANALYTICS.QUALIFIED_SUPPLIER_OPTIONS q ON q.part_id = ac.part_id
-    CROSS JOIN parameters x
-    WHERE q.supplier_id <> x.failed_supplier_id
-),
-
+-- Expedite is limited to shipments from the failed supplier that are already
+-- in transit/delayed. We treat the shipment quantity as recoverable units.
 expedite AS (
     SELECT
+        sh.part_id,
         'EXPEDITE_SHIPMENT' AS mitigation_type,
-        COALESCE(SUM(sh.quantity),0) AS available_capacity,
-        COALESCE(SUM(sh.quantity),0) AS available_units,
-        COALESCE(SUM(sh.quantity * p.unit_cost * 0.25),0) AS incremental_cost
+        SUM(sh.quantity) AS incremental_units,
+        SUM(sh.quantity * pt.unit_cost * 0.25) AS incremental_cost
     FROM RAW.SHIPMENTS sh
     JOIN failed_parts fp ON fp.part_id = sh.part_id
-    JOIN RAW.PARTS p ON p.part_id = sh.part_id
+    JOIN RAW.PARTS pt ON pt.part_id = sh.part_id
+    JOIN p ON p.failed_supplier_id = sh.supplier_id
     WHERE sh.status IN ('IN_TRANSIT','DELAYED')
+      AND sh.expected_arrival > p.start_date
+      AND sh.expected_arrival <= DATEADD(day, p.duration_days, p.start_date)
+    GROUP BY sh.part_id
 ),
-
-reallocation AS (
+none AS (
     SELECT
-        'INVENTORY_REALLOCATION' AS mitigation_type,
-        COALESCE(SUM(GREATEST(i.on_hand_units - i.safety_stock_units,0)),0) AS available_capacity,
-        COALESCE(SUM(GREATEST(i.on_hand_units - i.safety_stock_units,0)),0) AS available_units,
-        0::NUMBER(18,2) AS incremental_cost
-    FROM RAW.INVENTORY i
-    JOIN failed_parts fp ON fp.part_id = i.part_id
-),
-
-no_action AS (
-    SELECT
+        fp.part_id,
         'NO_ACTION' AS mitigation_type,
-        0::NUMBER AS available_capacity,
-        0::NUMBER AS available_units,
+        0::NUMBER(18,2) AS incremental_units,
         0::NUMBER(18,2) AS incremental_cost
-),
-
-options AS (
-    SELECT * FROM no_action
-    UNION ALL SELECT * FROM alternate
-    UNION ALL SELECT * FROM expedite
-    UNION ALL SELECT * FROM reallocation
+    FROM failed_parts fp
 )
+SELECT * FROM none
+UNION ALL SELECT * FROM alternate
+UNION ALL SELECT * FROM expedite;
 
+CREATE OR REPLACE VIEW SCENARIOS.V_MITIGATION_ORDER_IMPACT AS
+WITH base AS (
+    SELECT
+        a.order_id,
+        a.customer_id,
+        a.product_id,
+        a.plant_id,
+        a.order_quantity,
+        a.order_value,
+        a.due_date,
+        a.priority,
+        a.sla_tier,
+        a.part_id,
+        a.units_per_product,
+        a.required_part_units,
+        a.allocated_part_units,
+        a.unmet_part_units,
+        a.available_part_units,
+        COALESCE(m.mitigation_type, 'NO_ACTION') AS mitigation_type,
+        COALESCE(m.incremental_units, 0) AS incremental_units,
+        COALESCE(m.incremental_cost, 0) AS mitigation_part_cost
+    FROM SCENARIOS.V_ORDER_PART_ALLOCATION a
+    LEFT JOIN SCENARIOS.V_MITIGATION_PART_CAPACITY m
+      ON m.part_id = a.part_id
+),
+-- Re-rank orders after adding mitigation units. The allocation order remains
+-- due date -> priority -> order id, so mitigation cannot double-count supply.
+ranked AS (
+    SELECT
+        b.*,
+        SUM(b.required_part_units) OVER (
+            PARTITION BY b.mitigation_type, b.plant_id, b.part_id
+            ORDER BY
+                b.due_date,
+                CASE b.priority
+                    WHEN 'URGENT' THEN 1
+                    WHEN 'HIGH' THEN 2
+                    WHEN 'NORMAL' THEN 3
+                    ELSE 4
+                END,
+                b.order_id
+            ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+        ) AS prior_required_units
+    FROM base b
+)
 SELECT
-    o.mitigation_type,
-    o.available_capacity,
-    o.available_units,
-    o.incremental_cost,
-    b.exposed_orders,
-    b.exposed_customers,
-    b.exposed_revenue,
-    LEAST(
-        b.exposed_revenue,
-        b.exposed_revenue * (o.available_units / NULLIF(o.available_units + 1,0))
-    ) AS modeled_revenue_protected,
+    r.*,
     GREATEST(
-        b.exposed_revenue - LEAST(
-            b.exposed_revenue,
-            b.exposed_revenue * (o.available_units / NULLIF(o.available_units + 1,0))
+        LEAST(
+            r.required_part_units,
+            r.available_part_units + r.incremental_units - COALESCE(r.prior_required_units,0)
         ),
         0
-    ) AS modeled_remaining_revenue_exposure,
-    'Modeled estimate based on available capacity/inventory; validate operational constraints before execution.' AS calculation_note
-FROM options o
-CROSS JOIN base b;
+    ) AS mitigated_allocated_part_units,
+    GREATEST(
+        r.required_part_units - GREATEST(
+            LEAST(
+                r.required_part_units,
+                r.available_part_units + r.incremental_units - COALESCE(r.prior_required_units,0)
+            ),
+            0
+        ),
+        0
+    ) AS mitigated_unmet_part_units
+FROM ranked r;
 
--- The UI/agent should present this as a comparison table and explain that
--- values are modeled estimates, not executed actions or observed outcomes.
+CREATE OR REPLACE VIEW SCENARIOS.V_MITIGATION_ORDER_SUMMARY AS
+SELECT
+    mitigation_type,
+    order_id,
+    customer_id,
+    product_id,
+    plant_id,
+    order_quantity,
+    order_value,
+    due_date,
+    priority,
+    sla_tier,
+    MIN(mitigated_allocated_part_units / NULLIF(units_per_product,0)) AS fulfillable_quantity,
+    GREATEST(
+        order_quantity - MIN(mitigated_allocated_part_units / NULLIF(units_per_product,0)),
+        0
+    ) AS at_risk_quantity,
+    order_value * LEAST(
+        GREATEST(
+            order_quantity - MIN(mitigated_allocated_part_units / NULLIF(units_per_product,0)),
+            0
+        ) / NULLIF(order_quantity,0),
+        1
+    ) AS at_risk_revenue
+FROM SCENARIOS.V_MITIGATION_ORDER_IMPACT
+GROUP BY
+    mitigation_type, order_id, customer_id, product_id, plant_id,
+    order_quantity, order_value, due_date, priority, sla_tier;
+
+CREATE OR REPLACE VIEW SCENARIOS.V_MITIGATION_COMPARISON AS
+SELECT
+    mitigation_type,
+    COUNT_IF(at_risk_quantity > 0) AS orders_at_risk,
+    COUNT(DISTINCT IFF(at_risk_quantity > 0, customer_id, NULL)) AS customers_exposed,
+    COALESCE(SUM(at_risk_quantity),0) AS units_at_risk,
+    COALESCE(SUM(at_risk_revenue),0) AS remaining_revenue_exposure,
+    (SELECT COALESCE(SUM(at_risk_revenue),0)
+       FROM SCENARIOS.V_ORDER_IMPACT) - COALESCE(SUM(at_risk_revenue),0) AS modeled_revenue_protected,
+    MAX(mitigation_part_cost) AS modeled_incremental_cost,
+    'Deterministic modeled outcome using explicit part capacity and priority-based order allocation; not an operational execution guarantee.' AS calculation_note
+FROM SCENARIOS.V_MITIGATION_ORDER_SUMMARY
+GROUP BY mitigation_type;
+
+-- The UI should present this as a trade-off table, not a universal ranking.
+-- Useful queries:
+-- SELECT * FROM SCENARIOS.V_MITIGATION_COMPARISON;
+-- SELECT * FROM SCENARIOS.V_MITIGATION_ORDER_SUMMARY WHERE at_risk_quantity > 0;
