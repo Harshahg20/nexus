@@ -3,7 +3,6 @@
 -- Design principle:
 -- Supplier failure -> part availability -> order allocation -> customer exposure.
 -- Every result is reproducible from explicit source relationships and quantities.
--- No heuristic revenue-protection formula is used here.
 
 USE DATABASE NEXUS_DB;
 
@@ -17,8 +16,6 @@ CREATE OR REPLACE TABLE SCENARIOS.SCENARIO_RUNS (
     created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
 );
 
--- Demo parameters. The UI/agent can later write a row to SCENARIO_RUNS and
--- materialize the same calculation with those values.
 CREATE OR REPLACE VIEW SCENARIOS.V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS AS
 SELECT
     'SUP-001'::VARCHAR AS failed_supplier_id,
@@ -26,7 +23,6 @@ SELECT
     14::NUMBER(10,0) AS duration_days,
     '2026-09-18'::DATE AS start_date;
 
--- Required component demand per open order.
 CREATE OR REPLACE VIEW SCENARIOS.V_ORDER_PART_DEMAND AS
 SELECT
     o.order_id,
@@ -46,9 +42,6 @@ FROM RAW.ORDERS o
 JOIN RAW.PRODUCT_PARTS pp ON pp.product_id = o.product_id
 WHERE o.status = 'OPEN';
 
--- Baseline supply available to each plant/part by the scenario start date:
--- usable on-hand inventory + inbound shipments expected by the order horizon.
--- Safety stock is protected and therefore not counted as immediately usable.
 CREATE OR REPLACE VIEW SCENARIOS.V_BASELINE_PART_SUPPLY AS
 WITH demand_horizon AS (
     SELECT plant_id, part_id, MAX(due_date) AS horizon_date
@@ -86,14 +79,9 @@ FULL OUTER JOIN inbound b
   ON b.plant_id = i.plant_id
  AND b.part_id = i.part_id;
 
--- Scenario supply removes future replenishment from the failed supplier and
--- applies the configured capacity reduction to its future supply.
 CREATE OR REPLACE VIEW SCENARIOS.V_SUPPLIER_FAILURE_PART_SUPPLY AS
 WITH p AS (
     SELECT * FROM SCENARIOS.V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS
-),
-base AS (
-    SELECT * FROM SCENARIOS.V_BASELINE_PART_SUPPLY
 ),
 failed_parts AS (
     SELECT DISTINCT sp.part_id
@@ -105,7 +93,7 @@ failed_inbound AS (
     SELECT
         sh.plant_id,
         sh.part_id,
-        SUM(sh.quantity) AS failed_future_inbound_units
+        SUM(sh.quantity * (1 - p.capacity_reduction_pct / 100)) AS retained_failed_supplier_units
     FROM RAW.SHIPMENTS sh
     JOIN p ON p.failed_supplier_id = sh.supplier_id
     WHERE sh.status IN ('IN_TRANSIT','DELAYED')
@@ -118,28 +106,45 @@ SELECT
     b.part_id,
     b.usable_inventory_units,
     b.inbound_units,
-    COALESCE(fi.failed_future_inbound_units, 0) AS failed_future_inbound_units,
+    COALESCE(fi.retained_failed_supplier_units, 0) AS retained_failed_supplier_units,
     GREATEST(
-        b.baseline_available_units - COALESCE(fi.failed_future_inbound_units, 0),
+        b.baseline_available_units
+        - COALESCE(fi.retained_failed_supplier_units, 0),
         0
     ) AS scenario_available_units
-FROM base b
+FROM SCENARIOS.V_BASELINE_PART_SUPPLY b
+JOIN failed_parts fp ON fp.part_id = b.part_id
 LEFT JOIN failed_inbound fi
   ON fi.plant_id = b.plant_id
- AND fi.part_id = b.part_id
-WHERE b.part_id IN (SELECT part_id FROM failed_parts)
-   OR b.part_id NOT IN (SELECT part_id FROM failed_parts);
+ AND fi.part_id = b.part_id;
 
--- Allocate part supply to orders deterministically by due date, then priority,
--- then order id. This prevents the same units from being counted against every
--- exposed order.
+-- Parts not sourced from the failed supplier retain baseline supply.
+CREATE OR REPLACE VIEW SCENARIOS.V_SCENARIO_PART_SUPPLY AS
+WITH failed AS (
+    SELECT * FROM SCENARIOS.V_SUPPLIER_FAILURE_PART_SUPPLY
+),
+all_supply AS (
+    SELECT * FROM SCENARIOS.V_BASELINE_PART_SUPPLY
+)
+SELECT
+    a.plant_id,
+    a.part_id,
+    a.usable_inventory_units,
+    a.inbound_units,
+    COALESCE(f.retained_failed_supplier_units, 0) AS retained_failed_supplier_units,
+    COALESCE(f.scenario_available_units, a.baseline_available_units) AS scenario_available_units
+FROM all_supply a
+LEFT JOIN failed f
+  ON f.plant_id = a.plant_id
+ AND f.part_id = a.part_id;
+
 CREATE OR REPLACE VIEW SCENARIOS.V_ORDER_PART_ALLOCATION AS
 WITH demand AS (
     SELECT * FROM SCENARIOS.V_ORDER_PART_DEMAND
 ),
 supply AS (
     SELECT plant_id, part_id, scenario_available_units
-    FROM SCENARIOS.V_SUPPLIER_FAILURE_PART_SUPPLY
+    FROM SCENARIOS.V_SCENARIO_PART_SUPPLY
 ),
 ranked AS (
     SELECT
@@ -186,8 +191,6 @@ SELECT
     ) AS unmet_part_units
 FROM ranked r;
 
--- An order is constrained by its scarcest required component. Fulfillable
--- product quantity is the minimum part-level allocation / units-per-product.
 CREATE OR REPLACE VIEW SCENARIOS.V_ORDER_IMPACT AS
 SELECT
     order_id,
@@ -236,7 +239,6 @@ LEFT JOIN SCENARIOS.V_ORDER_PART_ALLOCATION oa
   ON oa.order_id = oi.order_id
 GROUP BY p.failed_supplier_id, p.capacity_reduction_pct, p.duration_days, p.start_date;
 
--- Traceable dependency chain for the UI evidence drawer.
 CREATE OR REPLACE VIEW SCENARIOS.V_SUPPLIER_FAILURE_CHAIN AS
 SELECT DISTINCT
     d.supplier_id,
@@ -269,7 +271,6 @@ JOIN SCENARIOS.V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS x ON x.failed_supplier_id = 
 WHERE d.qualification_status = 'QUALIFIED'
   AND oi.at_risk_quantity > 0;
 
--- Baseline command-center facts.
 CREATE OR REPLACE VIEW ANALYTICS.EXECUTIVE_RISK_SUMMARY AS
 SELECT
     COUNT(DISTINCT order_id) AS total_orders,
