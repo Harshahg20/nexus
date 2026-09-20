@@ -1,5 +1,7 @@
 import streamlit as st
 from services.snowflake import load_supplier_failure_impact
+from ui.theme import C, FONT
+import streamlit.components.v1 as components
 
 
 def render():
@@ -8,27 +10,52 @@ def render():
         st.warning("No scenario impact data available.")
         return
 
-    cols = st.columns(6)
+    revenue   = impact.get("REVENUE_EXPOSURE", 0)
+    orders    = impact.get("ORDERS_AT_RISK", 0)
+    parts     = impact.get("AFFECTED_PARTS", 0)
+    customers = impact.get("CUSTOMERS_EXPOSED", 0)
+    plants    = impact.get("AFFECTED_PLANTS", 0)
+    units     = impact.get("UNITS_AT_RISK", 0)
 
-    kpis = [
-        ("Revenue Exposure", f"${impact.get('REVENUE_EXPOSURE', 0):,.0f}", "Total modeled revenue at risk"),
-        ("Orders at Risk", f"{impact.get('ORDERS_AT_RISK', 0)}", "Open orders with modeled shortages"),
-        ("Affected Parts", f"{impact.get('AFFECTED_PARTS', 0)}", "Parts with unmet demand"),
-        ("Customers Exposed", f"{impact.get('CUSTOMERS_EXPOSED', 0)}", "Distinct customers affected"),
-        ("Affected Plants", f"{impact.get('AFFECTED_PLANTS', 0)}", "Manufacturing sites impacted"),
-        ("Units at Risk", f"{impact.get('UNITS_AT_RISK', 0):,.0f}", "Product units with shortages"),
-    ]
+    # ── Render via components.html so the accent bars are guaranteed ──────────
+    # Each card: white card, colored top border, big number, label, sub-label
+    def card(label, value, sub, accent, val_color="#0F172A"):
+        return f"""
+        <div style="background:#ffffff;border:1px solid #E2E8F0;border-radius:14px;
+                    padding:0;overflow:hidden;
+                    box-shadow:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+                    transition:box-shadow .2s;height:100%;">
+          <div style="height:3px;background:{accent};"></div>
+          <div style="padding:18px 18px 16px;">
+            <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.12em;color:#94A3B8;margin-bottom:10px;">{label}</div>
+            <div style="font-size:1.9rem;font-weight:800;color:{val_color};
+                        letter-spacing:-0.03em;line-height:1.1;margin-bottom:6px;">{value}</div>
+            <div style="font-size:0.72rem;color:#CBD5E1;">{sub}</div>
+          </div>
+        </div>"""
 
-    for col, (label, value, help_text) in zip(cols, kpis):
-        with col:
-            st.markdown(
-                f"""<div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px;
-                    padding:20px 16px; text-align:center;">
-                    <div style="color:#8892b0; font-size:0.75rem; text-transform:uppercase;
-                        letter-spacing:0.1em; margin-bottom:8px;">{label}</div>
-                    <div style="color:#e6f1ff; font-size:1.8rem; font-weight:700;
-                        line-height:1.2;">{value}</div>
-                </div>""",
-                unsafe_allow_html=True,
-                help=help_text,
-            )
+    cards_html = f"""
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;
+                font-family:{FONT};">
+      {card("Revenue Exposure",  f"${revenue/1_000_000:.2f}M", "Total at-risk revenue",
+            "linear-gradient(90deg,#DC2626,#EA580C)", val_color="#DC2626")}
+      {card("Orders at Risk",    str(orders),                 "Open orders w/ shortages",
+            "linear-gradient(90deg,#EA580C,#D97706)")}
+      {card("Affected Parts",    str(parts),                  "Parts with unmet demand",
+            "linear-gradient(90deg,#2563EB,#0891B2)")}
+      {card("Customers Exposed", str(customers),              "Distinct buyers impacted",
+            "linear-gradient(90deg,#7C3AED,#2563EB)")}
+      {card("Affected Plants",   str(plants),                 "Manufacturing sites hit",
+            "linear-gradient(90deg,#00C49A,#0891B2)")}
+      {card("Units at Risk",     f"{units:,.0f}",             "Product units w/ shortages",
+            "linear-gradient(90deg,#94A3B8,#64748B)")}
+    </div>"""
+
+    components.html(
+        f"<!DOCTYPE html><html><head><meta charset='UTF-8'></head>"
+        f"<body style='margin:0;padding:0;background:transparent;'>"
+        f"{cards_html}"
+        f"</body></html>",
+        height=120,
+    )
