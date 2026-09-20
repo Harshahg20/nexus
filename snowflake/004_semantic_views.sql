@@ -25,6 +25,10 @@ FROM RAW.ORDERS o
 JOIN RAW.CUSTOMERS c ON c.customer_id = o.customer_id
 JOIN RAW.PRODUCTS p ON p.product_id = o.product_id;
 
+-- SOURCING GOVERNANCE: Use RAW.SUPPLIER_PARTS as the authoritative supplier-part
+-- qualification relationship. Historical shipment activity alone does not
+-- establish that a supplier is an approved source for a part. Only records with
+-- qualification_status = 'QUALIFIED' represent governed sourcing relationships.
 CREATE OR REPLACE VIEW ANALYTICS.SUPPLIER_PART_DEPENDENCY AS
 SELECT DISTINCT
     s.supplier_id,
@@ -36,8 +40,10 @@ SELECT DISTINCT
     p.criticality,
     p.unit_cost
 FROM RAW.SUPPLIERS s
-JOIN RAW.SHIPMENTS sh ON sh.supplier_id = s.supplier_id
-JOIN RAW.PARTS p ON p.part_id = sh.part_id;
+JOIN RAW.SUPPLIER_PARTS sp
+    ON sp.supplier_id = s.supplier_id
+    AND sp.qualification_status = 'QUALIFIED'
+JOIN RAW.PARTS p ON p.part_id = sp.part_id;
 
 CREATE OR REPLACE VIEW ANALYTICS.PART_PLANT_INVENTORY AS
 SELECT

@@ -2,38 +2,67 @@
 -- These views expose deterministic checks for demo QA and agent grounding.
 USE DATABASE NEXUS_DB;
 
+-- NEXUS scenario validation checks.
+-- Each row returns: check_name, status (PASS/FAIL), violation_count, description.
+-- All five checks must return PASS in a valid deployment.
+-- Expected valid state for all checks: status = 'PASS', violation_count = 0.
 CREATE OR REPLACE VIEW ANALYTICS.V_SCENARIO_VALIDATION AS
-SELECT 'SUPPLIER_FAILURE_NO_NEGATIVE_RISK' AS check_name,
-       COUNT_IF(at_risk_quantity < 0 OR at_risk_revenue < 0) AS failures,
-       IFF(COUNT_IF(at_risk_quantity < 0 OR at_risk_revenue < 0)=0,'PASS','FAIL') AS status
+
+-- 1. No negative at-risk quantity or revenue in the supplier-failure scenario.
+SELECT
+    'NO_NEGATIVE_RISK'                                             AS check_name,
+    IFF(COUNT_IF(at_risk_quantity < 0 OR at_risk_revenue < 0) = 0, 'PASS', 'FAIL') AS status,
+    COUNT_IF(at_risk_quantity < 0 OR at_risk_revenue < 0)         AS violation_count,
+    'Orders with at_risk_quantity < 0 or at_risk_revenue < 0'     AS description
 FROM SCENARIOS.V_ORDER_IMPACT
+
 UNION ALL
-SELECT 'SUPPLIER_FAILURE_REVENUE_BOUNDED',
-       COUNT_IF(at_risk_revenue < 0 OR at_risk_revenue > order_value + 0.01),
-       IFF(COUNT_IF(at_risk_revenue < 0 OR at_risk_revenue > order_value + 0.01)=0,'PASS','FAIL')
+
+-- 2. At-risk revenue must not exceed order value and must not be negative.
+SELECT
+    'REVENUE_RISK_NOT_OVER_ORDER_VALUE',
+    IFF(COUNT_IF(at_risk_revenue < -0.01 OR at_risk_revenue > order_value + 0.01) = 0, 'PASS', 'FAIL'),
+    COUNT_IF(at_risk_revenue < -0.01 OR at_risk_revenue > order_value + 0.01),
+    'Orders where at_risk_revenue < 0 or at_risk_revenue > order_value'
 FROM SCENARIOS.V_ORDER_IMPACT
+
 UNION ALL
-SELECT 'SUPPLIER_FAILURE_ALLOCATION_NOT_OVER_DEMAND',
-       COUNT_IF(allocated_part_units > required_part_units + 0.01),
-       IFF(COUNT_IF(allocated_part_units > required_part_units + 0.01)=0,'PASS','FAIL')
+
+-- 3. Part allocation per order row must not exceed that row's required part units.
+SELECT
+    'ALLOCATION_NOT_OVER_DEMAND',
+    IFF(COUNT_IF(allocated_part_units > required_part_units + 0.01) = 0, 'PASS', 'FAIL'),
+    COUNT_IF(allocated_part_units > required_part_units + 0.01),
+    'Allocation rows where allocated_part_units exceeds required_part_units'
 FROM SCENARIOS.V_ORDER_PART_ALLOCATION
+
 UNION ALL
-SELECT 'SUPPLIER_FAILURE_ALLOCATION_NOT_OVER_SUPPLY',
-       COUNT(*)
-         FROM (
-           SELECT plant_id,part_id,
-                  MAX(available_part_units) AS available_units,
-                  SUM(allocated_part_units) AS allocated_units
-           FROM SCENARIOS.V_ORDER_PART_ALLOCATION
-           GROUP BY plant_id,part_id
-           HAVING SUM(allocated_part_units) > MAX(available_part_units) + 0.01
-         ),
-       IFF(COUNT(*)=0,'PASS','FAIL')
-FROM SCENARIOS.V_ORDER_PART_ALLOCATION
+
+-- 4. Total allocation per plant/part must not exceed scenario available supply.
+--    The subquery counts plant/part violations; COUNT(*) here counts those rows only.
+SELECT
+    'ALLOCATION_NOT_OVER_SUPPLY',
+    IFF(COUNT(*) = 0, 'PASS', 'FAIL'),
+    COUNT(*),
+    'Plant/part combinations where SUM(allocated_part_units) > MAX(available_part_units)'
+FROM (
+    SELECT plant_id, part_id,
+           MAX(available_part_units) AS available_units,
+           SUM(allocated_part_units) AS total_allocated
+    FROM SCENARIOS.V_ORDER_PART_ALLOCATION
+    GROUP BY plant_id, part_id
+    HAVING SUM(allocated_part_units) > MAX(available_part_units) + 0.01
+)
+
 UNION ALL
-SELECT 'SUPPLIER_FAILURE_TRACE_ONLY_FOR_SHORTAGE',
-       COUNT_IF(unmet_part_units <= 0),
-       IFF(COUNT_IF(unmet_part_units <= 0)=0,'PASS','FAIL')
+
+-- 5. Every row in the supplier-failure chain must represent an actual unmet shortage.
+--    Chain rows with unmet_part_units <= 0 indicate a trace without a real shortage.
+SELECT
+    'SUPPLIER_FAILURE_TRACE_ONLY_FOR_ACTUAL_SHORTAGES',
+    IFF(COUNT_IF(unmet_part_units <= 0) = 0, 'PASS', 'FAIL'),
+    COUNT_IF(unmet_part_units <= 0),
+    'Supplier failure chain rows where unmet_part_units is zero or negative'
 FROM SCENARIOS.V_SUPPLIER_FAILURE_CHAIN;
 
 CREATE OR REPLACE VIEW ANALYTICS.V_NEXUS_EVIDENCE_SUPPLIER_FAILURE AS

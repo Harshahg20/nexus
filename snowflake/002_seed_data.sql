@@ -1,8 +1,25 @@
 -- Deterministic synthetic data for the NEXUS MVP.
 -- Deliberately contains single-source parts, alternate suppliers,
 -- safety stock, delayed shipments, shared components and high-value orders.
+--
+-- IDEMPOTENCY: TRUNCATE each RAW entity table before inserting so this script
+-- can be safely re-executed without primary-key violations. Snowflake does not
+-- enforce FK constraints, so truncation order is not critical; reverse-insert
+-- order is used here for clarity.
+-- 003 (PRODUCT_PARTS) and 007 (SUPPLIER_PARTS) use CREATE OR REPLACE TABLE
+-- and are already idempotent.
 
 USE DATABASE NEXUS_DB;
+
+TRUNCATE TABLE RAW.ORDERS;
+TRUNCATE TABLE RAW.CUSTOMERS;
+TRUNCATE TABLE RAW.PRODUCTS;
+TRUNCATE TABLE RAW.SHIPMENTS;
+TRUNCATE TABLE RAW.PORTS;
+TRUNCATE TABLE RAW.INVENTORY;
+TRUNCATE TABLE RAW.PLANTS;
+TRUNCATE TABLE RAW.PARTS;
+TRUNCATE TABLE RAW.SUPPLIERS;
 
 INSERT INTO RAW.SUPPLIERS VALUES
 ('SUP-001','Apex Components','Japan','CRITICAL',12000,'ACTIVE'),
@@ -74,12 +91,43 @@ INSERT INTO RAW.PORTS VALUES
 ('PORT-BUS','Busan Port','South Korea','MEDIUM','ACTIVE'),
 ('PORT-HAM','Hamburg Port','Germany','LOW','ACTIVE');
 
+-- SHIPMENT ARRIVAL DATE NOTES (demo date: 2026-09-18):
+-- Scenario windows require arrivals AFTER 2026-09-18:
+--   SUP-001 failure: > 2026-09-18 AND <= 2026-10-02
+--   PORT-TYO disruption: > 2026-09-18 AND <= 2026-09-25
+--
+-- Three IN_TRANSIT/DELAYED shipments from SUP-001 via PORT-TYO are shifted
+-- so their arrivals fall inside both scenario windows simultaneously. Ship
+-- dates are unchanged; the adjusted transit times (7–11 days) are realistic
+-- for intra-Asia and Asia→Europe logistics.
+--
+-- SHP-002: PART-104 → PLT-002 via PORT-TYO
+--   Arrival shifted Sep 14 → Sep 20. Effect: removes 100 units of PART-104
+--   at PLT-002 under both scenarios. Baseline supply = 110 (10 usable + 100
+--   inbound). Scenario supply = 10. Demand = 16 (ORD-002). Creates 6-unit
+--   shortage → ORD-002 ($336K, CUST-002) becomes at risk.
+--
+-- SHP-003: PART-111 → PLT-001 via PORT-TYO
+--   Arrival shifted Sep 15 → Sep 22. Effect: removes 80 units of PART-111
+--   at PLT-001. Baseline supply = 90 (10 usable + 80 inbound). Scenario
+--   supply = 10. Demand = 27 (ORD-004 + ORD-011 + ORD-017). Creates 17-unit
+--   shortage → three PROD-005 orders at risk (CUST-003 + CUST-001).
+--
+-- SHP-004: PART-102 → PLT-002 via PORT-TYO, status DELAYED
+--   Arrival shifted Sep 15 → Sep 23. Effect: removes 180 units of PART-102
+--   at PLT-002. Baseline supply = 220 (40 usable + 180 inbound). Scenario
+--   supply = 40. Demand = 51 (ORD-002 + ORD-008 + ORD-012). Creates 11-unit
+--   shortage → ORD-012 ($187.5K, CUST-002) partially at risk.
+--
+-- All other shipments are unchanged. SHP-001/SHP-005/SHP-006/SHP-008/SHP-011
+-- are DELIVERED and remain baseline supply. SHP-013 arrives Sep 17 (before
+-- the disruption window) and is therefore unaffected by either scenario.
 INSERT INTO RAW.SHIPMENTS VALUES
 ('SHP-001','SUP-001','PART-104','PLT-001','PORT-TYO',120,'2026-09-10','2026-09-13','DELIVERED'),
-('SHP-002','SUP-001','PART-104','PLT-002','PORT-TYO',100,'2026-09-11','2026-09-14','IN_TRANSIT'),
-('SHP-003','SUP-001','PART-111','PLT-001','PORT-TYO',80,'2026-09-12','2026-09-15','IN_TRANSIT'),
-('SHP-004','SUP-001','PART-102','PLT-002','PORT-TYO',180,'2026-09-12','2026-09-15','DELAYED'),
-('SHP-005','SUP-002','PART-104','PLT-003','PORT-BUS',90,'2026-09-09','2026-09-13','DELIVERED'),
+('SHP-002','SUP-001','PART-104','PLT-002','PORT-TYO',100,'2026-09-11','2026-09-20','IN_TRANSIT'),
+('SHP-003','SUP-001','PART-111','PLT-001','PORT-TYO',80, '2026-09-12','2026-09-22','IN_TRANSIT'),
+('SHP-004','SUP-001','PART-102','PLT-002','PORT-TYO',180,'2026-09-12','2026-09-23','DELAYED'),
+('SHP-005','SUP-002','PART-104','PLT-003','PORT-BUS',90, '2026-09-09','2026-09-13','DELIVERED'),
 ('SHP-006','SUP-003','PART-102','PLT-001','PORT-TYO',120,'2026-09-08','2026-09-12','DELIVERED'),
 ('SHP-007','SUP-003','PART-103','PLT-003','PORT-TYO',300,'2026-09-12','2026-09-16','IN_TRANSIT'),
 ('SHP-008','SUP-004','PART-108','PLT-002','PORT-BUS',220,'2026-09-08','2026-09-13','DELIVERED'),
@@ -87,7 +135,7 @@ INSERT INTO RAW.SHIPMENTS VALUES
 ('SHP-010','SUP-006','PART-116','PLT-003','PORT-SIN',100,'2026-09-11','2026-09-15','IN_TRANSIT'),
 ('SHP-011','SUP-008','PART-118','PLT-005','PORT-HAM',100,'2026-09-07','2026-09-12','DELIVERED'),
 ('SHP-012','SUP-010','PART-119','PLT-005','PORT-HAM',180,'2026-09-10','2026-09-15','IN_TRANSIT'),
-('SHP-013','SUP-001','PART-104','PLT-005','PORT-TYO',90,'2026-09-13','2026-09-17','IN_TRANSIT'),
+('SHP-013','SUP-001','PART-104','PLT-005','PORT-TYO',90, '2026-09-13','2026-09-17','IN_TRANSIT'),
 ('SHP-014','SUP-007','PART-110','PLT-004','PORT-SIN',200,'2026-09-12','2026-09-16','IN_TRANSIT'),
 ('SHP-015','SUP-009','PART-113','PLT-001','PORT-TYO',160,'2026-09-12','2026-09-16','IN_TRANSIT');
 

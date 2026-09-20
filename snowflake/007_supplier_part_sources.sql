@@ -17,6 +17,12 @@ CREATE OR REPLACE TABLE RAW.SUPPLIER_PARTS (
 );
 
 -- Seed deliberate sourcing patterns for scenario analysis.
+-- SUP-001 is the primary qualified source for PART-104 (Precision Motor).
+-- SUP-002 and SUP-005 are qualified alternate sources for PART-104.
+-- This three-supplier structure is required for the canonical demo scenario:
+--   "What breaks next if SUP-001 becomes unavailable for 14 days?"
+-- The supplier failure engine uses RAW.SUPPLIER_PARTS (not SHIPMENTS) to
+-- determine which parts are affected when SUP-001 fails.
 INSERT INTO RAW.SUPPLIER_PARTS
     (supplier_id, part_id, qualification_status, max_daily_capacity_units,
      unit_cost, lead_time_days, expedite_cost_pct, effective_date)
@@ -27,6 +33,8 @@ SELECT * FROM VALUES
     ('SUP-003','PART-102','QUALIFIED',250,44.00,8,0.25,'2026-01-01'),
     ('SUP-001','PART-103','QUALIFIED',200,31.00,5,0.20,'2026-01-01'),
     ('SUP-004','PART-103','QUALIFIED',180,32.50,6,0.20,'2026-01-01'),
+    -- SUP-001 is the primary source; SUP-002 and SUP-005 are qualified alternates.
+    ('SUP-001','PART-104','QUALIFIED',480,26.50,4,0.28,'2026-01-01'),
     ('SUP-002','PART-104','QUALIFIED',450,27.00,5,0.20,'2026-01-01'),
     ('SUP-005','PART-104','QUALIFIED',300,28.50,9,0.35,'2026-01-01'),
     ('SUP-002','PART-105','QUALIFIED',400,15.00,4,0.15,'2026-01-01'),

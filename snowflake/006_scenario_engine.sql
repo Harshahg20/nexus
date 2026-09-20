@@ -61,8 +61,11 @@ failed_parts AS (
     WHERE sp.qualification_status='QUALIFIED'
 ),
 failed_inbound AS (
+    -- Compute how many units are LOST due to the capacity reduction.
+    -- At 100% reduction all in-window inbound from the failed supplier is removed.
+    -- Formula: lost = quantity * (capacity_reduction_pct / 100)
     SELECT sh.plant_id, sh.part_id,
-           SUM(sh.quantity*(1-p.capacity_reduction_pct/100)) AS retained_failed_supplier_units
+           SUM(sh.quantity*(p.capacity_reduction_pct/100)) AS lost_failed_supplier_units
     FROM RAW.SHIPMENTS sh JOIN p ON p.failed_supplier_id=sh.supplier_id
     WHERE sh.status IN ('IN_TRANSIT','DELAYED')
       AND sh.expected_arrival > p.start_date
@@ -70,8 +73,8 @@ failed_inbound AS (
     GROUP BY sh.plant_id, sh.part_id
 )
 SELECT b.plant_id,b.part_id,b.usable_inventory_units,b.inbound_units,
-       COALESCE(fi.retained_failed_supplier_units,0) AS retained_failed_supplier_units,
-       GREATEST(b.baseline_available_units-COALESCE(fi.retained_failed_supplier_units,0),0) AS scenario_available_units
+       COALESCE(fi.lost_failed_supplier_units,0) AS lost_failed_supplier_units,
+       GREATEST(b.baseline_available_units-COALESCE(fi.lost_failed_supplier_units,0),0) AS scenario_available_units
 FROM SCENARIOS.V_BASELINE_PART_SUPPLY b
 JOIN failed_parts fp ON fp.part_id=b.part_id
 LEFT JOIN failed_inbound fi ON fi.plant_id=b.plant_id AND fi.part_id=b.part_id;
@@ -79,7 +82,7 @@ LEFT JOIN failed_inbound fi ON fi.plant_id=b.plant_id AND fi.part_id=b.part_id;
 CREATE OR REPLACE VIEW SCENARIOS.V_SCENARIO_PART_SUPPLY AS
 WITH failed AS (SELECT * FROM SCENARIOS.V_SUPPLIER_FAILURE_PART_SUPPLY), all_supply AS (SELECT * FROM SCENARIOS.V_BASELINE_PART_SUPPLY)
 SELECT a.plant_id,a.part_id,a.usable_inventory_units,a.inbound_units,
-       COALESCE(f.retained_failed_supplier_units,0) AS retained_failed_supplier_units,
+       COALESCE(f.lost_failed_supplier_units,0) AS lost_failed_supplier_units,
        COALESCE(f.scenario_available_units,a.baseline_available_units) AS scenario_available_units
 FROM all_supply a LEFT JOIN failed f ON f.plant_id=a.plant_id AND f.part_id=a.part_id;
 
