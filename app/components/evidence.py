@@ -50,16 +50,40 @@ def render():
     mod_html = _panel_html("Modeled Scenario Outputs",  _MODELED)
 
     components.html(
-        f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-        <style>*{{box-sizing:border-box;font-family:{FONT};margin:0;padding:0;}}
-        body{{background:transparent;padding:0;}}</style>
-        </head><body>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:4px 0;">
-          {obs_html}
-          {mod_html}
-        </div>
-        </body></html>""",
-        height=310,
+        f"""<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+* {{ box-sizing:border-box; font-family:{FONT}; margin:0; padding:0; }}
+body {{ background:transparent; padding:0; }}
+#egrid {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:4px 0; }}
+/* Mobile: stack vertically */
+@media (max-width: 640px) {{
+  #egrid {{ grid-template-columns: 1fr !important; gap: 10px; }}
+}}
+/* Mobile portrait: reduce padding inside panels */
+@media (max-width: 480px) {{
+  #egrid > div {{ padding: 16px !important; }}
+  code {{ font-size: 0.6rem !important; padding: 2px 6px !important; }}
+}}
+/* Hover effect (desktop only) */
+@media (hover: hover) {{
+  #egrid > div:hover {{
+    box-shadow: 0 4px 16px rgba(0,0,0,0.09) !important;
+    border-color: #CBD5E1 !important;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }}
+}}
+</style>
+</head>
+<body>
+<div id="egrid">
+  {obs_html}
+  {mod_html}
+</div>
+</body></html>""",
+        height=320,
         scrolling=False,
     )
 
@@ -81,6 +105,10 @@ def render():
             st.info("Metric catalog not available.")
 
     st.caption(
-        "Scenario outputs are modeled decision-support results produced by deterministic "
-        "priority-based order allocation. They are not operational guarantees."
+        "Scenario outputs are modelled decision-support results produced by deterministic "
+        "priority-based order allocation. They are not operational guarantees. "
+        "**Scope note:** `orders_at_risk`, `customers_exposed`, and `affected_parts` in the KPI strip "
+        "count all shortages under the active scenario (all causes). "
+        "The cascade and impact-detail sections trace only shortages caused by the failing supplier's "
+        "qualified parts — counts will differ when pre-existing supply constraints are present."
     )

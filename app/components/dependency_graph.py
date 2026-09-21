@@ -1,7 +1,11 @@
 from __future__ import annotations
 import streamlit as st
 import streamlit.components.v1 as components
-from services.snowflake import load_supplier_failure_chain, load_supplier_failure_parameters
+from services.snowflake import (
+    load_supplier_failure_chain,
+    load_supplier_failure_parameters,
+    is_unsupported_scenario,
+)
 from ui.theme import FONT
 
 # ── Per-node color config ─────────────────────────────────────────────────────
@@ -27,7 +31,7 @@ def _rgb(hex_color: str) -> str:
 def _tag(text: str, color: str) -> str:
     r = _rgb(color)
     return (
-        f'<span style="display:inline-block;padding:3px 10px;border-radius:6px;'
+        f'<span class="tag" style="display:inline-block;padding:3px 10px;border-radius:6px;'
         f'font-size:0.71rem;font-weight:600;margin:3px 3px 0 0;'
         f'background:rgba({r},0.09);border:1px solid rgba({r},0.22);color:{color};">'
         f'{text}</span>'
@@ -99,36 +103,53 @@ def _node(kind: str, step: int, total: int, heading: str, body_html: str,
     ) if is_first else ""
 
     return f"""
-    <div style="position:relative;background:#ffffff;
+    <div class="cascade-node" style="position:relative;background:#ffffff;
                 border:1px solid {n['border']};
                 border-left:3px solid {n['color']};
                 border-radius:0 14px 14px 0;
-                padding:16px 20px;
-                box-shadow:0 2px 12px rgba(0,0,0,0.07),
-                           0 0 0 0 rgba({_rgb(n['color'])},0.1);
                 opacity:0;
                 animation:nodeIn 0.45s cubic-bezier(.4,0,.2,1) {delay}s forwards;">
       {pulse}
-      <!-- Step badge -->
-      <div style="position:absolute;top:10px;right:14px;font-size:0.57rem;font-weight:700;
-                  text-transform:uppercase;letter-spacing:0.1em;
-                  color:{n['color']};opacity:0.5;">
-        Step {step+1} / {total}
+      <div class="node-inner" style="padding:16px 20px;
+                box-shadow:0 2px 12px rgba(0,0,0,0.07);
+                border-radius:0 14px 14px 0;">
+        <!-- Step badge -->
+        <div class="step-badge" style="position:absolute;top:10px;right:14px;font-size:0.57rem;
+                    font-weight:700;text-transform:uppercase;letter-spacing:0.1em;
+                    color:{n['color']};opacity:0.5;">
+          Step {step+1} / {total}
+        </div>
+        <!-- Label -->
+        <div class="node-label" style="font-size:0.6rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.14em;color:{n['color']};margin-bottom:9px;">
+          {heading}
+        </div>
+        {body_html}
       </div>
-      <!-- Label -->
-      <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.14em;color:{n['color']};margin-bottom:9px;">
-        {heading}
-      </div>
-      {body_html}
     </div>"""
 
 
 def render():
     params = load_supplier_failure_parameters()
+
+    # Detect unsupported scenario parameters before rendering the graph
+    if params:
+        unsupported, guidance = is_unsupported_scenario(params)
+        if unsupported:
+            st.warning(
+                "⚠ **Unsupported scenario — cascade graph will be empty.**\n\n"
+                + guidance
+            )
+
     chain  = load_supplier_failure_chain()
     if chain.empty:
-        st.info("No dependency chain data available.")
+        st.info(
+            "No cascade-chain data is available for the active scenario. "
+            "If the scenario parameters are unsupported (see banner above), "
+            "update them in Snowflake to match the seeded configuration. "
+            "Otherwise check the Snowflake connection or verify that "
+            "`NEXUS_DB.SCENARIOS.V_SUPPLIER_FAILURE_CHAIN` returns rows."
+        )
         return
 
     sid  = params.get("FAILED_SUPPLIER_ID", "SUP-001")
@@ -155,9 +176,9 @@ def render():
     customer_tags = "".join(_tag(f"{r['CUSTOMER_NAME']} · {r['SLA_TIER']}", _SLA.get(str(r['SLA_TIER']).upper(),"#64748B")) for _,r in customers.iterrows())
 
     body_orders = (
-        f'<div style="font-size:1.55rem;font-weight:800;color:#DC2626;'
+        f'<div class="node-metric" style="font-size:1.55rem;font-weight:800;color:#DC2626;'
         f'letter-spacing:-0.03em;margin-bottom:3px;">${revenue:,.0f}</div>'
-        f'<div style="font-size:0.78rem;color:#94A3B8;">'
+        f'<div class="node-sub" style="font-size:0.78rem;color:#94A3B8;">'
         f'modeled revenue exposure across {n_orders} orders</div>'
     )
 
@@ -183,7 +204,14 @@ def render():
 
     components.html(
         f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Source: NEXUS_DB.SCENARIOS.V_SUPPLIER_FAILURE_CHAIN
+  Scope : Full disruption cascade — supplier → parts → plants → products → orders → customers
+  Type  : Observed data + scenario engine output (modeled cascade propagation)
+-->
 <style>
 * {{ box-sizing:border-box; margin:0; padding:0; font-family:{FONT}; }}
 body {{ background:transparent; padding:4px 0 12px; }}
@@ -216,22 +244,52 @@ body {{ background:transparent; padding:4px 0 12px; }}
     100% {{ transform:translateY(-50%) scale(2.8); opacity:0; }}
 }}
 
-/* Subtle card hover */
-div[style*="border-radius:0 14px"] {{
-    transition: box-shadow 0.2s ease, transform 0.18s ease;
-    cursor: default;
-}}
-div[style*="border-radius:0 14px"]:hover {{
+/* Subtle card hover (desktop only) */
+@media (hover: hover) {{
+  .cascade-node:hover {{
     box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
     transform: translateX(3px) !important;
+  }}
+}}
+.cascade-node {{
+  transition: box-shadow 0.2s ease, transform 0.18s ease;
+  cursor: default;
+}}
+
+/* ── Responsive node sizing ─────────────────────────────────── */
+.cascade-wrap {{ max-width: 680px; margin: 0 auto; padding: 0 4px; }}
+
+/* Tablet */
+@media (max-width: 900px) {{
+  .cascade-wrap {{ max-width: 560px; }}
+}}
+/* Mobile landscape */
+@media (max-width: 640px) {{
+  .cascade-wrap {{ max-width: 100%; padding: 0 2px; }}
+  .node-inner {{ padding: 12px 14px !important; }}
+  .step-badge {{ font-size: 0.5rem !important; }}
+  .node-label {{ font-size: 0.55rem !important; margin-bottom: 6px !important; }}
+  .tag {{ font-size: 0.65rem !important; padding: 2px 7px !important; margin: 2px !important; }}
+  .node-metric {{ font-size: 1.25rem !important; }}
+  .node-sub {{ font-size: 0.7rem !important; }}
+}}
+/* Mobile portrait */
+@media (max-width: 400px) {{
+  .node-inner {{ padding: 10px 12px !important; }}
+  .tag {{ font-size: 0.6rem !important; padding: 2px 6px !important; }}
 }}
 </style>
 </head>
 <body>
-  <div style="max-width:680px;margin:0 auto;padding:0 4px;">
+  <div class="cascade-wrap">
     {body}
   </div>
 </body></html>""",
         height=height,
         scrolling=False,
+    )
+    st.caption(
+        "Source: `NEXUS_DB.SCENARIOS.V_SUPPLIER_FAILURE_CHAIN` · "
+        "Cascade propagation is deterministic — observed supplier data joined with "
+        "the scenario engine. Revenue figure is a modeled exposure, not a confirmed loss."
     )

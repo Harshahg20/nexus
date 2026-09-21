@@ -73,6 +73,7 @@ SHADOW_MD  = "0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04)"
 SHADOW_LG  = "0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)"
 
 
+
 # ── Global CSS ────────────────────────────────────────────────────────────────
 # SAFE: no @import, targets Streamlit data-testid selectors only
 GLOBAL_CSS = f"""<style>
@@ -342,6 +343,40 @@ button[kind="header"] {{
 @keyframes fadein {{
     from {{ opacity:0; transform:translateY(8px); }}
     to   {{ opacity:1; transform:translateY(0); }}
+}}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+/* Tablet: 768-1024px */
+@media (max-width: 1024px) {{
+    .block-container {{ padding: 0 1.5rem 4rem !important; }}
+    [data-testid="column"] {{ padding: 0 4px !important; }}
+    [data-testid="stMetricValue"] {{ font-size: 1.6rem !important; }}
+}}
+
+/* Mobile landscape / large phone: 480-768px */
+@media (max-width: 768px) {{
+    .block-container {{ padding: 0 1rem 3.5rem !important; }}
+    [data-testid="column"] {{ padding: 0 3px !important; }}
+    [data-testid="stMetric"] {{ padding: 14px 14px 12px !important; }}
+    [data-testid="stMetricValue"] {{ font-size: 1.4rem !important; }}
+    [data-testid="stMetricLabel"] {{ font-size: 0.65rem !important; }}
+}}
+
+/* Mobile portrait: <480px */
+@media (max-width: 480px) {{
+    .block-container {{ padding: 0 0.6rem 3rem !important; }}
+    [data-testid="stMetric"] {{ padding: 12px 12px 10px !important; border-radius: 10px !important; }}
+    [data-testid="stMetricValue"] {{ font-size: 1.25rem !important; }}
+    [data-testid="stExpander"] summary {{ padding: 12px 14px !important; font-size: 0.82rem !important; }}
+    [data-testid="stExpander"] > div > div {{ padding: 12px 14px !important; }}
+    .stButton > button {{ font-size: 0.75rem !important; padding: 8px 10px !important; }}
+}}
+
+/* Touch-friendly minimum tap targets */
+@media (hover: none) and (pointer: coarse) {{
+    .stButton > button {{ min-height: 44px !important; }}
+    [data-testid="stChatInputSubmitButton"] button {{ min-height: 44px !important; min-width: 44px !important; }}
+    summary {{ min-height: 44px !important; display: flex !important; align-items: center !important; }}
 }}
 
 </style>"""

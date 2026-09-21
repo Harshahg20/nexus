@@ -1,4 +1,20 @@
+import sys
 import streamlit as st
+
+# ── Python version guard (server log only — no UI banner) ────────────────────
+# Snowflake has deprecated the Python 3.9 runtime (EOL Oct 2025).
+# We emit a DeprecationWarning to the `streamlit run` terminal only;
+# end users never see this message in the browser.
+import warnings as _warnings
+_PY = sys.version_info
+if (_PY.major, _PY.minor) < (3, 11):
+    _warnings.warn(
+        f"NEXUS is running on Python {_PY.major}.{_PY.minor}. "
+        "Python 3.9 is EOL — Snowflake no longer patches this runtime. "
+        "Run `make setup PYTHON=python3.11` to upgrade (see README → Prerequisites).",
+        DeprecationWarning,
+        stacklevel=1,
+    )
 
 st.set_page_config(
     page_title="NEXUS — Supply Chain Resilience",
@@ -16,13 +32,16 @@ st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 import streamlit.components.v1 as components
 
 components.html(f"""
-<!DOCTYPE html><html><head><meta charset="UTF-8">
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 * {{ box-sizing:border-box; margin:0; padding:0; }}
 body {{
   font-family:{FONT};
   background:transparent;
-  padding:36px 24px 28px;
+  padding:32px 20px 24px;
   text-align:center;
 }}
 .pill {{
@@ -31,7 +50,7 @@ body {{
   border:1px solid rgba(0,196,154,0.35);
   border-radius:100px;
   background:rgba(0,196,154,0.07);
-  margin-bottom:18px;
+  margin-bottom:16px;
 }}
 .dot {{
   width:7px; height:7px; border-radius:50%;
@@ -47,7 +66,7 @@ body {{
   letter-spacing:0.3em; color:{C.TEAL};
 }}
 .title {{
-  font-size:2.5rem; font-weight:800; line-height:1.15;
+  font-size:2.4rem; font-weight:800; line-height:1.15;
   letter-spacing:-0.03em; color:{C.T1};
   margin-bottom:10px;
 }}
@@ -57,7 +76,8 @@ body {{
   background-clip:text;
 }}
 .tagline {{
-  font-size:0.98rem; color:{C.T4}; letter-spacing:0.01em; margin-bottom:20px;
+  font-size:0.95rem; color:{C.T4}; letter-spacing:0.01em; margin-bottom:18px;
+  line-height:1.5;
 }}
 .live-badge {{
   display:inline-flex; align-items:center; gap:8px;
@@ -79,6 +99,18 @@ body {{
   font-size:0.63rem; font-weight:700; text-transform:uppercase;
   letter-spacing:0.1em; color:{C.RED_TEXT};
 }}
+/* ── Responsive type scale ───────────────────────── */
+@media (max-width: 768px) {{
+  body {{ padding:24px 16px 20px; }}
+  .title {{ font-size:1.9rem; }}
+  .tagline {{ font-size:0.85rem; }}
+}}
+@media (max-width: 480px) {{
+  .title {{ font-size:1.55rem; }}
+  .tagline {{ font-size:0.78rem; }}
+  .pill {{ padding:4px 14px; margin-bottom:12px; }}
+  .live-badge {{ padding:5px 12px; }}
+}}
 </style>
 </head><body>
 <div class="pill">
@@ -97,7 +129,7 @@ body {{
   <span class="live-text">Scenario Active &mdash; Supplier Failure Engine</span>
 </div>
 </body></html>
-""", height=220)
+""", height=210)
 
 
 # ─── KPI STRIP ───────────────────────────────────────────────────────────────
@@ -114,11 +146,13 @@ scenario_panel.render()
 st.markdown("---")
 st.markdown(
     f"<p style='font-size:0.63rem;font-weight:700;text-transform:uppercase;"
-    f"letter-spacing:0.18em;color:{C.T5};margin-bottom:6px;font-family:{FONT};'>Failure Propagation</p>"
+    f"letter-spacing:0.18em;color:{C.T5};margin-bottom:6px;font-family:{FONT};'>Failure Propagation — SUP-001 Causal Impact</p>"
     f"<h3 style='font-size:1.35rem;font-weight:800;color:{C.T1};letter-spacing:-0.02em;"
-    f"margin-bottom:4px;font-family:{FONT};'>What Breaks Next?</h3>"
+    f"margin-bottom:4px;font-family:{FONT};'>What Breaks Because of SUP-001?</h3>"
     f"<p style='font-size:0.82rem;color:{C.T4};margin-bottom:20px;font-family:{FONT};'>"
-    f"Deterministic cascade — one supplier disruption propagates through parts → plants → products → orders → customers.</p>",
+    f"Causal cascade from SUP-001's failure — only parts, orders, and customers whose shortage "
+    f"is traceable to SUP-001's qualified parts. Counts here are smaller than the headline KPIs "
+    f"above, which include all scenario-wide shortages.</p>",
     unsafe_allow_html=True,
 )
 from components import dependency_graph
@@ -129,11 +163,12 @@ st.markdown("---")
 # ─── IMPACT DETAILS ──────────────────────────────────────────────────────────
 st.markdown(
     f"<p style='font-size:0.63rem;font-weight:700;text-transform:uppercase;"
-    f"letter-spacing:0.18em;color:{C.T5};margin-bottom:6px;font-family:{FONT};'>Downstream Impact</p>"
+    f"letter-spacing:0.18em;color:{C.T5};margin-bottom:6px;font-family:{FONT};'>Downstream Impact — SUP-001 Causal Trace</p>"
     f"<h3 style='font-size:1.35rem;font-weight:800;color:{C.T1};letter-spacing:-0.02em;"
     f"margin-bottom:4px;font-family:{FONT};'>Impact Details</h3>"
     f"<p style='font-size:0.82rem;color:{C.T4};margin-bottom:20px;font-family:{FONT};'>"
-    f"Drill into every affected part, plant, order and customer for this scenario.</p>",
+    f"Parts, plants, orders, and customers whose shortage is traceable to SUP-001. "
+    f"Counts are smaller than headline KPIs, which include all scenario-wide shortages.</p>",
     unsafe_allow_html=True,
 )
 from components import impact_details

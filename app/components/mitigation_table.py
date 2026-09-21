@@ -44,10 +44,21 @@ def _row(lbl: str, val_html: str, last: bool = False) -> str:
     )
 
 
+_MODELED_BADGE = (
+    "🔬 **Modeled outputs** — these figures are produced by a deterministic "
+    "priority-based order-allocation model in Snowflake. "
+    "They are decision-support estimates, not operational commitments or guarantees."
+)
+
+
 def render():
     df = load_mitigation_comparison()
     if df.empty:
-        st.info("No mitigation data available.")
+        st.info(
+            "No mitigation comparison data is available. "
+            "Check the Snowflake connection or verify that "
+            "`NEXUS_DB.SCENARIOS.V_MITIGATION_COMPARISON` returns 3 rows."
+        )
         return
 
     order_map = {"NO_ACTION": 0, "EXPEDITE_SHIPMENT": 1, "ALTERNATE_SUPPLIER": 2}
@@ -109,22 +120,50 @@ def render():
           </div>
         </div>"""
 
+    st.info(_MODELED_BADGE)
+
     components.html(
-        f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-        <style>
-        * {{ box-sizing:border-box; font-family:{FONT}; margin:0; padding:0; }}
-        body {{ background:transparent; padding:0; }}
-        </style></head>
-        <body>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:4px 0;">
-          {cards_html}
-        </div>
-        </body></html>""",
-        height=410,
+        f"""<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+* {{ box-sizing:border-box; font-family:{FONT}; margin:0; padding:0; }}
+body {{ background:transparent; padding:0; }}
+/* Desktop: 3-col side-by-side */
+#mgrid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; padding:4px 0; }}
+/* Tablet: still 3-col but tighter */
+@media (max-width: 900px) {{
+  #mgrid {{ gap: 12px; }}
+  #mgrid .card-title {{ font-size: 0.9rem !important; }}
+}}
+/* Mobile landscape / small tablet: 1-col stacked */
+@media (max-width: 680px) {{
+  #mgrid {{ grid-template-columns: 1fr !important; gap: 10px; }}
+}}
+/* Mobile portrait */
+@media (max-width: 400px) {{
+  #mgrid {{ gap: 8px; }}
+}}
+/* Hover lift (desktop only) */
+@media (hover: hover) {{
+  #mgrid > div:hover {{
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
+    transform: translateY(-2px);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }}
+}}
+</style>
+</head>
+<body>
+<div id="mgrid">{cards_html}</div>
+</body></html>""",
+        height=420,
         scrolling=False,
     )
 
     st.caption(
-        "Deterministic modeled outcomes using priority-based order allocation. "
-        "Not an operational execution guarantee — use to inform, not execute."
+        "Source: `NEXUS_DB.SCENARIOS.V_MITIGATION_COMPARISON` · "
+        "Deterministic modeled outcomes — priority-based order allocation. "
+        "Use to inform decisions; do not treat as operational execution plans."
     )

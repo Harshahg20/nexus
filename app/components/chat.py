@@ -1,20 +1,27 @@
 from __future__ import annotations
 import streamlit as st
-import streamlit.components.v1 as components
-from services.agent import invoke_agent, extract_text, extract_suggested_queries
-from ui.theme import C, FONT, SHADOW_MD
+from services.agent import (
+    stream_agent,
+    extract_suggested_queries,
+    invoke_agent,
+    NexusAgentError,
+)
+from ui.theme import C, FONT
 
-EXAMPLE_QUESTIONS = [
-    "→  Which suppliers provide critical parts?",
-    "→  What products depend on PART-104?",
-    "→  What breaks if SUP-001 becomes unavailable?",
-    "→  Which customers are exposed to PART-104?",
-    "→  What mitigation options are available?",
-    "→  What happens if PORT-TYO is disrupted?",
+# (label shown on button, full question submitted to agent)
+EXAMPLE_QUESTIONS: list[tuple[str, str]] = [
+    ("→ Critical part suppliers?",      "Which suppliers provide critical parts?"),
+    ("→ PART-104 dependencies?",        "What products depend on PART-104?"),
+    ("→ SUP-001 failure impact?",       "What breaks if SUP-001 becomes unavailable?"),
+    ("→ PART-104 customer exposure?",   "Which customers are exposed to PART-104?"),
+    ("→ Available mitigations?",        "What mitigation options are available?"),
+    ("→ PORT-TYO disruption impact?",   "What happens if PORT-TYO is disrupted?"),
 ]
 
-# Display labels without the → prefix (shown separately on hover via CSS)
-_Q_CLEAN = [q.replace("→  ", "") for q in EXAMPLE_QUESTIONS]
+_AGENT_NOTE = (
+    "Powered by **Snowflake Cortex AI** and your governed semantic layer. "
+    "Answers reflect data in Snowflake — not real-time external sources."
+)
 
 
 def render():
@@ -33,7 +40,7 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # ── Example questions header ──────────────────────────────────────────────
+    # ── Example questions ─────────────────────────────────────────────────────
     st.markdown(
         f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
         f"letter-spacing:0.15em;color:{C.T5};margin-bottom:8px;font-family:{FONT};'>"
@@ -41,12 +48,13 @@ def render():
         unsafe_allow_html=True,
     )
 
-    chip_cols = st.columns(3)
-    for i, (q, label) in enumerate(zip(EXAMPLE_QUESTIONS, _Q_CLEAN)):
-        with chip_cols[i % 3]:
-            if st.button(q, key=f"nexus_chip_{i}"):
-                _submit(label)
-                st.rerun()
+    chip_cols = st.columns(2)
+    for i, (chip_label, question) in enumerate(EXAMPLE_QUESTIONS):
+        with chip_cols[i % 2]:
+            if st.button(chip_label, key=f"nexus_chip_{i}"):
+                if question and question.strip():
+                    _submit(question)
+                    st.rerun()
 
     st.write("")
 
@@ -55,25 +63,130 @@ def render():
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
+    # ── Streaming input ───────────────────────────────────────────────────────
     if prompt := st.chat_input("Ask NEXUS about your supply chain…"):
-        _submit(prompt)
-        st.rerun()
+        stripped = prompt.strip()
+        if stripped:
+            _submit_streaming(stripped)
+        else:
+            st.toast("Please enter a question before submitting.", icon="✏️")
+
+    # ── Provenance note ───────────────────────────────────────────────────────
+    st.caption(_AGENT_NOTE)
 
 
-def _submit(question: str):
+def _submit_streaming(question: str) -> None:
+    """
+    Stream the agent response token-by-token using st.write_stream.
+
+    Falls back to a blocking call (with spinner) if streaming fails.
+    The full streamed text is appended to chat_messages so history renders
+    correctly on re-render.
+    """
+    st.session_state.chat_messages.append({"role": "user", "content": question})
+
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    with st.chat_message("assistant"):
+        try:
+            # st.write_stream consumes the generator and returns the full text
+            response_text: str = st.write_stream(stream_agent(question))
+
+            # Fetch suggested queries from a lightweight blocking call
+            # (stream response does not include them in every chunk)
+            suggestions = _fetch_suggestions(question)
+            if suggestions:
+                suggestion_md = "\n\n---\n**Suggested follow-ups:**\n" + "".join(
+                    f"- {s}\n" for s in suggestions
+                )
+                st.markdown(suggestion_md)
+                response_text += suggestion_md
+
+            st.session_state.chat_messages.append(
+                {"role": "assistant", "content": response_text}
+            )
+
+        except NexusAgentError as exc:
+            _show_agent_error(exc)
+        except Exception:
+            _show_generic_error()
+
+
+def _submit(question: str) -> None:
+    """
+    Blocking submit used by example-question chip buttons.
+    (Chips trigger st.rerun() after this, so streaming is not possible there.)
+    """
     st.session_state.chat_messages.append({"role": "user", "content": question})
     try:
         with st.spinner("NEXUS is analyzing your supply chain…"):
             response = invoke_agent(question)
+
+        from services.agent import extract_text  # local import avoids circular
         text        = extract_text(response)
         suggestions = extract_suggested_queries(response)
-        answer      = text
+
+        if not text:
+            text = (
+                "The agent returned a response but contained no readable text. "
+                "Try rephrasing your question."
+            )
+
+        answer = text
         if suggestions:
             answer += "\n\n---\n**Suggested follow-ups:**\n"
             for s in suggestions:
                 answer += f"- {s}\n"
+
         st.session_state.chat_messages.append({"role": "assistant", "content": answer})
-    except Exception as e:
+
+    except NexusAgentError as exc:
         st.session_state.chat_messages.append(
-            {"role": "assistant", "content": f"⚠ Error contacting NEXUS agent: {e}"}
+            {"role": "assistant", "content": _error_md(exc)}
         )
+    except Exception:
+        st.session_state.chat_messages.append(
+            {"role": "assistant", "content": _generic_error_md()}
+        )
+
+
+def _fetch_suggestions(question: str) -> list[str]:
+    """
+    Attempt to retrieve suggested follow-ups from the blocking agent response.
+    Returns [] on any failure — suggestions are non-critical.
+    """
+    try:
+        response = invoke_agent(question)
+        return extract_suggested_queries(response)
+    except Exception:
+        return []
+
+
+def _error_md(exc: NexusAgentError) -> str:
+    return (
+        f"⚠ **NEXUS could not answer this question.**\n\n"
+        f"{exc}\n\n"
+        "*If this persists, verify the Cortex Agent deployment and your Snowflake connection.*"
+    )
+
+
+def _generic_error_md() -> str:
+    return (
+        "⚠ **An unexpected error occurred.**\n\n"
+        "Please try again. If the problem persists, check the Streamlit server log."
+    )
+
+
+def _show_agent_error(exc: NexusAgentError) -> None:
+    st.error(_error_md(exc))
+    st.session_state.chat_messages.append(
+        {"role": "assistant", "content": _error_md(exc)}
+    )
+
+
+def _show_generic_error() -> None:
+    st.error(_generic_error_md())
+    st.session_state.chat_messages.append(
+        {"role": "assistant", "content": _generic_error_md()}
+    )
