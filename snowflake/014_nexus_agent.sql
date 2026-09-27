@@ -225,6 +225,7 @@ CREATE OR REPLACE AGENT NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT
       - Supplier failure: SUP-001, 100% capacity reduction, 14 days
       - Port disruption: PORT-TYO, 100% disruption, 7 days
       - Freight shock: 30% freight increase, 14 days
+      - Mitigation strategies (4): NO_ACTION, EXPEDITE_SHIPMENT, INVENTORY_REALLOCATION, ALTERNATE_SUPPLIER
 
       CRITICAL RULES:
       1. Every scenario result is a DETERMINISTIC MODELED OUTCOME, not an operational
@@ -268,7 +269,7 @@ CREATE OR REPLACE AGENT NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT
     - tool_spec:
         type: "generic"
         name: "compare_active_mitigations"
-        description: "Compares mitigation strategies for the currently active supplier failure scenario. Returns modeled outcomes for each strategy (no action, expedite shipment, alternate supplier) including orders at risk, customers exposed, remaining and protected revenue exposure, and incremental modeled cost. All results are deterministic modeled outcomes."
+        description: "Compares four mitigation strategies for the currently active supplier failure scenario: no action (baseline), expedite shipment (rush in-transit goods via alternate freight, 25% cost premium), inventory reallocation (transfer surplus stock from non-deficit plants, 15% logistics cost), and alternate supplier (source from other qualified suppliers). Returns modeled outcomes for each strategy including orders at risk, customers exposed, remaining and protected revenue exposure, and incremental modeled cost. All results are deterministic modeled outcomes."
     - tool_spec:
         type: "generic"
         name: "run_active_port_disruption"

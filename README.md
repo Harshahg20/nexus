@@ -197,7 +197,7 @@ The recommended live demo path (all data is live from Snowflake):
 | Area | Limitation | Mitigation |
 |---|---|---|
 | Scenario parameters | Hard-coded in `V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS`. UI cannot change the active scenario — editing parameters requires updating the Snowflake view. | The UI detects unsupported parameters and shows a clear guidance banner instead of silently returning blank data. |
-| Scenario coverage | Only the seeded scenario (SUP-001 · 100% · 14 days) is supported by the supplier-failure engine. The UI shows a warning if different parameters are detected. | Port disruption (PORT-TYO) and freight shock are available via the Cortex Agent chat. |
+| Scenario coverage | Only the seeded scenario (SUP-001 · 100% · 14 days) is supported by the supplier-failure engine. The UI shows a warning if different parameters are detected. | Port disruption (PORT-TYO) and freight shock are available via the Cortex Agent chat. Four mitigation strategies are modeled: NO_ACTION, EXPEDITE_SHIPMENT, INVENTORY_REALLOCATION, ALTERNATE_SUPPLIER. |
 | Cortex Agent timeout | Long or complex agent queries default to a 60 s wall-clock timeout. | Timeout raises a user-friendly message with a retry suggestion. Adjust `AGENT_TIMEOUT` in `services/agent.py` if your warehouse needs more warm-up time. |
 | Multi-turn threads | Thread IDs are not yet persisted between sessions. Each chat session is independent. | Acceptable for a demo; add `st.session_state` thread management for production. |
 | Auth method | Key-pair only. `externalbrowser` (OAuth) is not currently configured. | See secrets.toml.example for key-pair setup. |
@@ -268,7 +268,24 @@ nexus/
 
 ## Snowflake Deployment
 
-SQL scripts are in the `sql/` directory (see `.cortex/plans/` for the full execution order).  
-Run in this order: `001_schema → 002_seed_data → 003_product_bom → 007_supplier_part_sources → 004_semantic_views → 006_scenario_engine → 008_mitigation_engine → 010_port_disruption_engine → 011_freight_shock_engine → 012_validation_views → 009_scenario_tests → 013_nexus_semantic_view`
+SQL scripts are in the `snowflake/` directory. Run them in this exact order in a Snowflake worksheet:
 
-All scripts are idempotent (`CREATE OR REPLACE`).
+```
+001_schema.sql               — Database, schemas, raw entity tables
+002_seed_data.sql            — Suppliers, parts, plants, inventory, ports, shipments, orders, customers
+003_product_bom.sql          — Product-to-part bill of materials (PRODUCT_PARTS)
+007_supplier_part_sources.sql — Supplier-part qualification (SUPPLIER_PARTS + analytics views)
+004_semantic_views.sql       — Analytical views: SUPPLY_CHAIN_RISK, SUPPLIER_PART_DEPENDENCY, etc.
+005_golden_queries.sql       — Demo golden queries (run to validate; no DDL)
+006_scenario_engine.sql      — Supplier failure scenario engine (V_SUPPLIER_FAILURE_IMPACT, etc.)
+008_mitigation_engine.sql    — Mitigation comparison engine (NO_ACTION, ALTERNATE_SUPPLIER,
+                               EXPEDITE_SHIPMENT, INVENTORY_REALLOCATION)
+010_port_disruption_engine.sql — PORT-TYO port disruption scenario
+011_freight_shock_engine.sql — 30% freight shock scenario
+012_validation_views.sql     — Validation checks + evidence views + metric catalog
+009_scenario_tests.sql       — Scenario regression invariant tests (run to verify)
+013_nexus_semantic_view.sql  — Cortex Semantic View (NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN)
+014_nexus_agent.sql          — Cortex Agent + 4 SQL tool UDFs (requires Cortex Agent preview)
+```
+
+All DDL scripts use `CREATE OR REPLACE` — they are idempotent and safe to re-run. `002_seed_data.sql` uses `TRUNCATE` before every `INSERT` to ensure clean re-runs. `005_golden_queries.sql` and `009_scenario_tests.sql` are validation-only (SELECT statements).

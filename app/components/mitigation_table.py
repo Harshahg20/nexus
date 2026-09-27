@@ -17,14 +17,21 @@ _CFG = {
         "name": "Expedite Shipment","icon": "⚡",
         "grad": "linear-gradient(90deg,#EA580C,#D97706)",
         "color": "#EA580C", "bg": "rgba(234,88,12,0.04)", "border": "rgba(234,88,12,0.18)",
-        "desc": "Rush inventory to narrow the shortage window.",
+        "desc": "Rush in-transit goods via alternate freight routes.",
+        "best": False,
+    },
+    "INVENTORY_REALLOCATION": {
+        "name": "Reallocate Inventory", "icon": "↔",
+        "grad": "linear-gradient(90deg,#2563EB,#7C3AED)",
+        "color": "#2563EB", "bg": "rgba(37,99,235,0.04)", "border": "rgba(37,99,235,0.2)",
+        "desc": "Transfer surplus stock from non-deficit plants — lowest cost.",
         "best": False,
     },
     "ALTERNATE_SUPPLIER": {
         "name": "Alternate Supplier","icon": "✓",
         "grad": "linear-gradient(90deg,#16A34A,#00C49A)",
         "color": "#16A34A", "bg": "rgba(22,163,74,0.04)", "border": "rgba(22,163,74,0.2)",
-        "desc": "Re-source from secondary supplier — highest recovery.",
+        "desc": "Re-source from secondary qualified supplier — highest recovery.",
         "best": True,
     },
 }
@@ -61,7 +68,7 @@ def render():
         )
         return
 
-    order_map = {"NO_ACTION": 0, "EXPEDITE_SHIPMENT": 1, "ALTERNATE_SUPPLIER": 2}
+    order_map = {"NO_ACTION": 0, "EXPEDITE_SHIPMENT": 1, "INVENTORY_REALLOCATION": 2, "ALTERNATE_SUPPLIER": 3}
     df["_s"] = df["MITIGATION_TYPE"].map(order_map).fillna(99)
     df = df.sort_values("_s").drop(columns=["_s"])
 
@@ -130,12 +137,11 @@ def render():
 <style>
 * {{ box-sizing:border-box; font-family:{FONT}; margin:0; padding:0; }}
 body {{ background:transparent; padding:0; }}
-/* Desktop: 3-col side-by-side */
-#mgrid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; padding:4px 0; }}
-/* Tablet: still 3-col but tighter */
-@media (max-width: 900px) {{
-  #mgrid {{ gap: 12px; }}
-  #mgrid .card-title {{ font-size: 0.9rem !important; }}
+/* Desktop: 4-col side-by-side */
+#mgrid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; padding:4px 0; }}
+/* Tablet: 2-col grid */
+@media (max-width: 1100px) {{
+  #mgrid {{ grid-template-columns: repeat(2,1fr); gap: 12px; }}
 }}
 /* Mobile landscape / small tablet: 1-col stacked */
 @media (max-width: 680px) {{
@@ -158,12 +164,12 @@ body {{ background:transparent; padding:0; }}
 <body>
 <div id="mgrid">{cards_html}</div>
 </body></html>""",
-        height=420,
+        height=440,
         scrolling=False,
     )
 
     st.caption(
         "Source: `NEXUS_DB.SCENARIOS.V_MITIGATION_COMPARISON` · "
-        "Deterministic modeled outcomes — priority-based order allocation. "
+        "Four modeled response strategies — deterministic, priority-based order allocation. "
         "Use to inform decisions; do not treat as operational execution plans."
     )
