@@ -39,11 +39,26 @@ class NexusConnectionError(RuntimeError):
 @st.cache_resource
 def get_session():
     """
-    Build and return a Snowpark session using key-pair authentication.
+    Build and return a Snowpark session.
+
+    Detection order:
+    1. Streamlit-in-Snowflake (SiS) — use the active session provided by the
+       platform.  No credentials needed.
+    2. Local development — key-pair (RSA) authentication via secrets.toml.
 
     Raises NexusConfigError  for bad config (missing key, secrets).
     Raises NexusConnectionError for Snowflake network/auth failures.
     """
+    # ── SiS: the platform provides an active session ──────────────────────
+    try:
+        from snowflake.snowpark.context import get_active_session
+        session = get_active_session()
+        session.use_database("NEXUS_DB")
+        return session
+    except Exception:
+        pass  # not running inside Snowflake — fall through to local auth
+
+    # ── Local: key-pair authentication via secrets.toml ───────────────────
     try:
         cfg = st.secrets["connections"]["snowflake"]
     except (KeyError, FileNotFoundError):
@@ -87,7 +102,6 @@ def get_session():
         }).create()
         return session
     except Exception as exc:
-        # Don't expose raw Snowflake driver errors to the UI
         raise NexusConnectionError(
             f"Could not connect to Snowflake (account={cfg.get('account', '?')}): {exc}"
         ) from exc
