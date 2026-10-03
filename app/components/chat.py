@@ -59,17 +59,34 @@ def render():
     st.write("")
 
     # ── Chat history ──────────────────────────────────────────────────────────
+    _HAS_CHAT_MSG = hasattr(st, "chat_message")
     for msg in st.session_state.chat_messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    # ── Streaming input ───────────────────────────────────────────────────────
-    if prompt := st.chat_input("Ask NEXUS about your supply chain…"):
-        stripped = prompt.strip()
-        if stripped:
-            _submit_streaming(stripped)
+        if _HAS_CHAT_MSG:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
         else:
-            st.toast("Please enter a question before submitting.", icon="✏️")
+            prefix = "🧑 **You**" if msg["role"] == "user" else f"🤖 **NEXUS**"
+            st.markdown(f"{prefix}: {msg['content']}")
+            st.divider()
+
+    # ── Input — chat_input (modern) or form fallback (older SiS runtime) ─────
+    if hasattr(st, "chat_input"):
+        if prompt := st.chat_input("Ask NEXUS about your supply chain…"):
+            stripped = prompt.strip()
+            if stripped:
+                _submit_streaming(stripped)
+            else:
+                st.toast("Please enter a question before submitting.", icon="✏️")
+    else:
+        with st.form(key="nexus_chat_form", clear_on_submit=True):
+            prompt_text = st.text_input(
+                "Ask NEXUS about your supply chain…",
+                placeholder="e.g. What breaks if SUP-001 is unavailable for 14 days?",
+            )
+            submitted = st.form_submit_button("Send ▶")
+        if submitted and prompt_text.strip():
+            _submit(prompt_text.strip())
+            st.rerun()
 
     # ── Provenance note ───────────────────────────────────────────────────────
     st.caption(_AGENT_NOTE)
@@ -85,13 +102,23 @@ def _submit_streaming(question: str) -> None:
     """
     st.session_state.chat_messages.append({"role": "user", "content": question})
 
-    with st.chat_message("user"):
-        st.markdown(question)
+    if hasattr(st, "chat_message"):
+        with st.chat_message("user"):
+            st.markdown(question)
+    else:
+        st.markdown(f"🧑 **You**: {question}")
 
-    with st.chat_message("assistant"):
+    _ctx = st.chat_message("assistant") if hasattr(st, "chat_message") else st.container()
+    with _ctx:
         try:
-            # st.write_stream consumes the generator and returns the full text
-            response_text: str = st.write_stream(stream_agent(question))
+            if hasattr(st, "write_stream"):
+                response_text: str = st.write_stream(stream_agent(question))
+            else:
+                with st.spinner("NEXUS is analyzing…"):
+                    response = invoke_agent(question)
+                from services.agent import extract_text
+                response_text = extract_text(response)
+                st.markdown(response_text)
 
             # Fetch suggested queries from a lightweight blocking call
             # (stream response does not include them in every chunk)

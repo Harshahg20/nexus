@@ -53,10 +53,15 @@ def get_session():
     try:
         from snowflake.snowpark.context import get_active_session
         session = get_active_session()
-        session.use_database("NEXUS_DB")
-        return session
     except Exception:
         pass  # not running inside Snowflake — fall through to local auth
+    else:
+        # get_active_session() succeeded → we are inside Snowflake SiS
+        try:
+            session.use_database("NEXUS_DB")
+        except Exception:
+            pass  # database context may already be set
+        return session
 
     # ── Local: key-pair authentication via secrets.toml ───────────────────
     try:
