@@ -1,5 +1,6 @@
 from __future__ import annotations
 import streamlit as st
+from ui.compat import st_dataframe
 import streamlit.components.v1 as components
 from services.snowflake import load_governed_metric_catalog
 from ui.theme import C, FONT, FONT_MONO, SHADOW_SM
@@ -92,12 +93,12 @@ body {{ background:transparent; padding:0; }}
     with st.expander("◈  Governed Metric Definitions", expanded=False):
         catalog = load_governed_metric_catalog()
         if not catalog.empty:
-            st.dataframe(
+            st_dataframe(
                 catalog.rename(columns={
                     "METRIC_NAME": "Metric",
                     "DEFINITION":  "Definition",
                     "SOURCE_VIEW": "Source View",
-                }),
+                    }),
                 use_container_width=True,
                 hide_index=True,
             )

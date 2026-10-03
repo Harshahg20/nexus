@@ -13,6 +13,7 @@ because the allocation engine counts only entities where the deficit is confirme
 Both scopes are intentional; see the Evidence section for governed definitions.
 """
 import streamlit as st
+from ui.compat import st_dataframe
 from services.snowflake import (
     load_supplier_failure_chain,
     load_supplier_failure_parameters,
@@ -100,7 +101,7 @@ def render():
             "in the active scenario. KPI 'Parts With Shortage' (top strip) is larger "
             "because it includes all parts with shortage, regardless of supplier."
         )
-        st.dataframe(
+        st_dataframe(
             parts_df.rename(columns={
                 "PART_ID":             "Part ID",
                 "PART_NAME":           "Part Name",
@@ -120,7 +121,7 @@ def render():
             "Plants that produce shortage-affected products. "
             "Matches KPI 'Affected Plants'."
         )
-        st.dataframe(
+        st_dataframe(
             plants_df.rename(columns={
                 "PLANT_ID":            "Plant ID",
                 "PLANT_NAME":          "Plant Name",
@@ -140,7 +141,7 @@ def render():
             "KPI 'Orders at Risk' (top strip) is larger because it counts all at-risk orders, "
             "including those whose shortage comes from parts unrelated to SUP-001."
         )
-        st.dataframe(
+        st_dataframe(
             orders_df.rename(columns={
                 "ORDER_ID":         "Order ID",
                 "CUSTOMER_NAME":    "Customer",
@@ -164,7 +165,7 @@ def render():
             "KPI 'Customers Exposed' (top strip) may be larger if any customer's "
             "at-risk orders trace only to non-SUP-001 parts."
         )
-        st.dataframe(
+        st_dataframe(
             customers_df.rename(columns={
                 "CUSTOMER_ID":         "Customer ID",
                 "CUSTOMER_NAME":       "Customer Name",
