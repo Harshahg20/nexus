@@ -21,6 +21,7 @@ ENV/
 *.key
 .streamlit/secrets.toml
 **/secrets.toml
+**/secrets.toml.old
 
 # IDE and editor files
 .vscode/
