@@ -7,6 +7,7 @@ from services.agent import (
     NexusAgentError,
 )
 from ui.theme import C, FONT
+from ui.compat import st_rerun
 
 # (label shown on button, full question submitted to agent)
 EXAMPLE_QUESTIONS: list[tuple[str, str]] = [
@@ -54,7 +55,7 @@ def render():
             if st.button(chip_label, key=f"nexus_chip_{i}"):
                 if question and question.strip():
                     _submit(question)
-                    st.rerun()
+                    st_rerun()
 
     st.write("")
 
@@ -86,7 +87,7 @@ def render():
             submitted = st.form_submit_button("Send ▶")
         if submitted and prompt_text.strip():
             _submit(prompt_text.strip())
-            st.rerun()
+            st_rerun()
 
     # ── Provenance note ───────────────────────────────────────────────────────
     st.caption(_AGENT_NOTE)

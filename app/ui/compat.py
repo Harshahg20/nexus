@@ -7,6 +7,14 @@ import inspect
 import streamlit as st
 
 
+def st_rerun():
+    """st.rerun() was added in 1.27; older SiS runtime only has experimental_rerun."""
+    if hasattr(st, "rerun"):
+        st.rerun()
+    else:
+        st.experimental_rerun()  # type: ignore[attr-defined]
+
+
 def st_dataframe(df, **kwargs):
     """
     Drop-in replacement for st.dataframe that strips kwargs unsupported
