@@ -185,8 +185,8 @@ p, .stMarkdown p  {{ color: {C.T3} !important; }}
 
 /* ── Layout ─────────────────────────────────────────────────────────────── */
 .block-container {{
-    padding: 0 2.5rem 5rem !important;
-    max-width: 1360px !important;
+    padding: 0 2rem 3rem !important;
+    max-width: 1400px !important;
     margin: 0 auto !important;
 }}
 [data-testid="column"] {{ padding: 0 6px !important; }}

@@ -204,7 +204,8 @@ table {{ border-spacing:0; }}
 </style>
 </head>
 <body>{table_html}</body></html>""",
-        height=280,
+        height=300,
+        scrolling=True,
     )
 
     st.caption(

@@ -137,19 +137,15 @@ def render():
 <style>
 * {{ box-sizing:border-box; font-family:{FONT}; margin:0; padding:0; }}
 body {{ background:transparent; padding:0; }}
-/* Desktop: 4-col side-by-side */
+/* Desktop: 4-col side-by-side (holds with sidebar open at ~980px) */
 #mgrid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; padding:4px 0; }}
-/* Tablet: 2-col grid */
-@media (max-width: 1100px) {{
+/* Narrow viewport / small tablet: 2-col grid */
+@media (max-width: 860px) {{
   #mgrid {{ grid-template-columns: repeat(2,1fr); gap: 12px; }}
 }}
-/* Mobile landscape / small tablet: 1-col stacked */
-@media (max-width: 680px) {{
+/* Mobile: 1-col stacked */
+@media (max-width: 520px) {{
   #mgrid {{ grid-template-columns: 1fr !important; gap: 10px; }}
-}}
-/* Mobile portrait */
-@media (max-width: 400px) {{
-  #mgrid {{ gap: 8px; }}
 }}
 /* Hover lift (desktop only) */
 @media (hover: hover) {{
@@ -164,8 +160,8 @@ body {{ background:transparent; padding:0; }}
 <body>
 <div id="mgrid">{cards_html}</div>
 </body></html>""",
-        height=440,
-        scrolling=False,
+        height=480,
+        scrolling=True,
     )
 
     st.caption(
