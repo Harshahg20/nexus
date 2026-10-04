@@ -88,47 +88,56 @@ section[data-testid="stMain"],
     color: {C.T1} !important;
 }}
 
-/* ── Force light theme — sidebar (SiS uses dark by default) ─────────────── */
+/* ── Force light theme — sidebar (nuclear: catches all SiS dark overrides) ── */
 [data-testid="stSidebar"],
 section[data-testid="stSidebar"],
 [data-testid="stSidebar"] > div,
 [data-testid="stSidebar"] > div > div,
+[data-testid="stSidebar"] > div > div > div,
 [data-testid="stSidebarContent"],
-[data-testid="stSidebarUserContent"] {{
+[data-testid="stSidebarUserContent"],
+[data-testid="stSidebarUserContent"] > div,
+[data-testid="stSidebarUserContent"] > div > div {{
     background-color: {C.CARD} !important;
     color-scheme: light !important;
 }}
 
-/* Sidebar — all text must be dark/readable */
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span:not(.stMarkdown *),
-[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stRadio"] label,
-[data-testid="stSidebar"] [data-testid="stSelectbox"] div,
-[data-testid="stSidebar"] [data-testid="stSlider"] label,
-[data-testid="stSidebar"] [data-testid="stTextInput"] label {{
+/* Sidebar — ALL text elements forced dark (wildcard catches radio spans etc) */
+[data-testid="stSidebar"] *:not(svg):not(path):not(circle):not(rect) {{
     color: {C.T2} !important;
 }}
 
-/* Sidebar — slider tick labels */
-[data-testid="stSidebar"] [data-testid="stTickBarMin"],
-[data-testid="stSidebar"] [data-testid="stTickBarMax"] {{
-    color: {C.T5} !important;
+/* Sidebar — re-allow brand/status colors on specific elements */
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] a {{
+    color: {C.TEAL_TEXT} !important;
 }}
 
-/* Sidebar — widget backgrounds (selectbox, text input) */
+/* Sidebar — slider fill & thumb stay teal */
+[data-testid="stSidebar"] [data-testid="stSlider"] [role="slider"] {{
+    background-color: {C.TEAL} !important;
+    border-color: {C.TEAL} !important;
+}}
+
+/* Sidebar — selectbox dropdown: force light bg + dark text */
 [data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div,
-[data-testid="stSidebar"] [data-testid="stTextInput"] input {{
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div > div,
+[data-testid="stSidebar"] select,
+[data-testid="stSidebar"] [data-testid="stSelectbox"] span {{
     background-color: {C.BASE} !important;
     color: {C.T1} !important;
     border-color: {C.BORDER_MD} !important;
 }}
 
-/* Sidebar — radio option text specifically */
-[data-testid="stSidebar"] .stRadio > div label,
-[data-testid="stSidebar"] .stRadio span {{
-    color: {C.T2} !important;
+/* Sidebar — text input */
+[data-testid="stSidebar"] input {{
+    background-color: {C.BASE} !important;
+    color: {C.T1} !important;
+    border-color: {C.BORDER_MD} !important;
+}}
+
+/* Sidebar — slider track background */
+[data-testid="stSidebar"] [data-testid="stSlider"] > div {{
+    background-color: {C.CARD} !important;
 }}
 
 /* ── Typography ─────────────────────────────────────────────────────────── */
