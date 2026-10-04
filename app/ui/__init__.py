@@ -9,11 +9,12 @@ from .html import (
     divider_line,
     spacer,
 )
-from .compat import st_dataframe, st_rerun
+from .compat import st_dataframe, st_rerun, st_toast, st_cache_resource, st_cache_data
 
 __all__ = [
     "GLOBAL_CSS", "C", "FONT",
     "section_header", "glass_card", "badge", "tag",
     "metric_row", "divider_line", "spacer",
-    "st_dataframe", "st_rerun",
+    "st_dataframe", "st_rerun", "st_toast",
+    "st_cache_resource", "st_cache_data",
 ]

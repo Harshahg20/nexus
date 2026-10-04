@@ -7,7 +7,7 @@ from services.agent import (
     NexusAgentError,
 )
 from ui.theme import C, FONT
-from ui.compat import st_rerun
+from ui.compat import st_rerun, st_toast
 
 # (label shown on button, full question submitted to agent)
 EXAMPLE_QUESTIONS: list[tuple[str, str]] = [
@@ -77,7 +77,7 @@ def render():
             if stripped:
                 _submit_streaming(stripped)
             else:
-                st.toast("Please enter a question before submitting.", icon="✏️")
+                st_toast("Please enter a question before submitting.", icon="✏️")
     else:
         with st.form(key="nexus_chat_form", clear_on_submit=True):
             prompt_text = st.text_input(

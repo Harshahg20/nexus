@@ -24,6 +24,34 @@ import os
 import streamlit as st
 import pandas as pd
 
+# SiS cache-decorator compatibility shims (cache_resource / cache_data added in 1.18)
+# These must be defined *before* the decorated functions below.
+
+def _sis_cache_resource(func):
+    """
+    Decorator shim for @st.cache_resource (added in Streamlit 1.18).
+    Falls back to @st.experimental_singleton on older SiS runtimes, then
+    to a plain no-op identity if neither is available.
+    """
+    if hasattr(st, "cache_resource"):
+        return st.cache_resource(func)
+    elif hasattr(st, "experimental_singleton"):
+        return st.experimental_singleton(func)  # type: ignore[attr-defined]
+    return func
+
+
+def _sis_cache_data(ttl: int):
+    """
+    Decorator factory shim for @st.cache_data(ttl=...) (added in Streamlit 1.18).
+    Falls back to @st.experimental_memo on older SiS runtimes, then to a
+    plain no-op identity if neither is available.
+    """
+    if hasattr(st, "cache_data"):
+        return st.cache_data(ttl=ttl)
+    elif hasattr(st, "experimental_memo"):
+        return st.experimental_memo(ttl=ttl)  # type: ignore[attr-defined]
+    return lambda func: func
+
 
 # ── Custom exceptions ─────────────────────────────────────────────────────────
 
@@ -36,7 +64,7 @@ class NexusConnectionError(RuntimeError):
 
 # ── Session ───────────────────────────────────────────────────────────────────
 
-@st.cache_resource
+@_sis_cache_resource
 def get_session():
     """
     Build and return a Snowpark session.
@@ -127,7 +155,7 @@ def get_session():
 # Consequence: if a Snowflake connection fails, the user sees an error banner
 # on every page render until connectivity is restored — never a silent blank.
 
-@st.cache_data(ttl=300)
+@_sis_cache_data(ttl=300)
 def _query_df_cached(sql: str) -> pd.DataFrame:
     """
     Execute *sql* and return a DataFrame.
