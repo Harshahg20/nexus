@@ -88,55 +88,78 @@ section[data-testid="stMain"],
     color: {C.T1} !important;
 }}
 
-/* ── Force light theme — sidebar (nuclear: catches all SiS dark overrides) ── */
-[data-testid="stSidebar"],
-section[data-testid="stSidebar"],
-[data-testid="stSidebar"] > div,
-[data-testid="stSidebar"] > div > div,
-[data-testid="stSidebar"] > div > div > div,
-[data-testid="stSidebarContent"],
-[data-testid="stSidebarUserContent"],
-[data-testid="stSidebarUserContent"] > div,
-[data-testid="stSidebarUserContent"] > div > div {{
+/* ══════════════════════════════════════════════════════════════════════════
+   SIDEBAR — force light theme, maximum specificity
+   SiS dark theme uses inline styles + high-specificity rules; we fight back
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Background: every container layer */
+html body section[data-testid="stSidebar"],
+html body section[data-testid="stSidebar"] > div,
+html body [data-testid="stSidebarContent"],
+html body [data-testid="stSidebarUserContent"] {{
     background-color: {C.CARD} !important;
     color-scheme: light !important;
 }}
 
-/* Sidebar — ALL text elements forced dark (wildcard catches radio spans etc) */
-[data-testid="stSidebar"] *:not(svg):not(path):not(circle):not(rect) {{
+/* Text: labels, paragraphs, spans, markdown — explicit, NOT wildcard */
+html body [data-testid="stSidebar"] label,
+html body [data-testid="stSidebar"] p,
+html body [data-testid="stSidebar"] span,
+html body [data-testid="stSidebar"] small,
+html body [data-testid="stSidebar"] div[class*="stMarkdown"],
+html body [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+html body [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] div {{
     color: {C.T2} !important;
 }}
 
-/* Sidebar — re-allow brand/status colors on specific elements */
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] a {{
+/* ALL sidebar buttons — white background, dark text (maximum specificity) */
+html body section[data-testid="stSidebar"] button,
+html body section[data-testid="stSidebar"] .stButton > button,
+html body section[data-testid="stSidebar"] [data-testid="stButton"] > button {{
+    background-color: {C.CARD} !important;
+    color: {C.T1} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 10px !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}}
+html body section[data-testid="stSidebar"] button:hover,
+html body section[data-testid="stSidebar"] .stButton > button:hover {{
+    background-color: {C.TEAL_DIM} !important;
     color: {C.TEAL_TEXT} !important;
+    border-color: {C.TEAL_BORDER} !important;
 }}
 
-/* Sidebar — slider fill & thumb stay teal */
-[data-testid="stSidebar"] [data-testid="stSlider"] [role="slider"] {{
+/* "💬 Ask NEXUS AI" — first button in sidebar = teal CTA */
+html body section[data-testid="stSidebar"] [data-testid="stButton"]:first-of-type button,
+html body section[data-testid="stSidebar"] .stButton:first-of-type > button {{
     background-color: {C.TEAL} !important;
-    border-color: {C.TEAL} !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 10px rgba(0,196,154,0.4) !important;
+}}
+html body section[data-testid="stSidebar"] [data-testid="stButton"]:first-of-type button:hover,
+html body section[data-testid="stSidebar"] .stButton:first-of-type > button:hover {{
+    background-color: #00a880 !important;
+    color: #ffffff !important;
 }}
 
-/* Sidebar — selectbox dropdown: force light bg + dark text
-   Must target BaseWeb's data-baseweb="select" which Streamlit uses internally */
-[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div,
-[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div > div,
-[data-testid="stSidebar"] [data-baseweb="select"],
-[data-testid="stSidebar"] [data-baseweb="select"] > div,
-[data-testid="stSidebar"] [data-baseweb="select"] > div > div,
-[data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"],
-[data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] > div,
-[data-testid="stSidebar"] select,
-[data-testid="stSidebar"] [data-testid="stSelectbox"] span {{
+/* Selectbox — BaseWeb select */
+html body [data-testid="stSidebar"] [data-baseweb="select"],
+html body [data-testid="stSidebar"] [data-baseweb="select"] > div,
+html body [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"],
+html body [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] > div,
+html body [data-testid="stSidebar"] select {{
     background-color: {C.BASE} !important;
     color: {C.T1} !important;
     border-color: {C.BORDER_MD} !important;
 }}
-/* BaseWeb select dropdown list (portal rendered outside sidebar) */
+/* Portal-rendered dropdown list */
 [data-baseweb="popover"] [data-baseweb="menu"],
-[data-baseweb="popover"] [data-baseweb="menu"] li,
-[data-baseweb="select-dropdown"] {{
+[data-baseweb="popover"] [data-baseweb="menu"] li {{
     background-color: {C.CARD} !important;
     color: {C.T1} !important;
 }}
@@ -144,16 +167,26 @@ section[data-testid="stSidebar"],
     background-color: {C.TEAL_DIM} !important;
 }}
 
-/* Sidebar — text input */
-[data-testid="stSidebar"] input {{
-    background-color: {C.BASE} !important;
-    color: {C.T1} !important;
-    border-color: {C.BORDER_MD} !important;
+/* Slider fill & thumb */
+html body [data-testid="stSidebar"] [data-testid="stSlider"] [role="slider"] {{
+    background-color: {C.TEAL} !important;
+    border-color: {C.TEAL} !important;
 }}
 
-/* Sidebar — slider track background */
-[data-testid="stSidebar"] [data-testid="stSlider"] > div {{
+/* Text input */
+html body [data-testid="stSidebar"] input {{
     background-color: {C.CARD} !important;
+    color: {C.T1} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 10px !important;
+}}
+html body [data-testid="stSidebar"] input::placeholder {{
+    color: {C.T4} !important;
+    opacity: 1 !important;
+}}
+html body [data-testid="stSidebar"] input:focus {{
+    border-color: {C.TEAL} !important;
+    box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
 }}
 
 /* ── Typography ─────────────────────────────────────────────────────────── */
@@ -273,105 +306,20 @@ hr {{
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
 }}
 
-/* ── Sidebar: ALL buttons must be readable (light bg + dark text) ─────────── */
-[data-testid="stSidebar"] .stButton > button {{
-    background: {C.CARD} !important;
-    color: {C.T1} !important;
-    border: 1px solid {C.BORDER_MD} !important;
-    border-radius: 10px !important;
-    font-size: 0.8rem !important;
-    font-weight: 600 !important;
-    box-shadow: none !important;
-    text-align: center !important;
-}}
-[data-testid="stSidebar"] .stButton > button:hover {{
-    background: {C.TEAL_DIM} !important;
-    border-color: {C.TEAL_BORDER} !important;
-    color: {C.TEAL_TEXT} !important;
-}}
-
-/* ── Sidebar: "Send to NEXUS ▶" — teal primary button ──────────────────── */
-[data-testid="stSidebar"] button[data-testid*="sb_send"],
-[data-testid="stSidebar"] .stButton:has(button[data-testid*="sb_send"]) > button {{
-    background: {C.TEAL} !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 10px !important;
-    font-weight: 700 !important;
-    box-shadow: 0 2px 8px rgba(0,196,154,0.35) !important;
-}}
-[data-testid="stSidebar"] button[data-testid*="sb_send"]:hover {{
-    background: #00a880 !important;
-    color: #ffffff !important;
-    box-shadow: 0 4px 14px rgba(0,196,154,0.45) !important;
-}}
-
-/* ── Sidebar: "💬 Ask NEXUS AI" — solid teal, always visible ─────────────── */
-[data-testid="stSidebar"] button[data-testid*="open_chat_mode"] {{
-    background: {C.TEAL} !important;
-    color: #ffffff !important;
-    border: none !important;
-    font-weight: 700 !important;
-    font-size: 0.88rem !important;
-    box-shadow: 0 2px 10px rgba(0,196,154,0.35) !important;
-}}
-[data-testid="stSidebar"] button[data-testid*="open_chat_mode"]:hover {{
-    background: #00a880 !important;
-    color: #ffffff !important;
-    box-shadow: 0 4px 16px rgba(0,196,154,0.5) !important;
-    transform: translateY(-1px) !important;
-}}
-
-/* ── Sidebar: "✕ Close Chat" — subtle red outline ───────────────────────── */
-[data-testid="stSidebar"] button[data-testid*="close_chat_mode"] {{
-    background: rgba(220,38,38,0.06) !important;
-    color: {C.RED} !important;
-    border: 1px solid rgba(220,38,38,0.22) !important;
-    font-weight: 600 !important;
-}}
-[data-testid="stSidebar"] button[data-testid*="close_chat_mode"]:hover {{
-    background: {C.RED} !important;
-    color: #ffffff !important;
-}}
-
-/* ── Sidebar text input — force light + readable ────────────────────────── */
-[data-testid="stSidebar"] [data-testid="stTextInput"] label {{
-    color: {C.T2} !important;
-    font-size: 0.8rem !important;
-    font-weight: 600 !important;
-}}
-[data-testid="stSidebar"] [data-testid="stTextInput"] input {{
-    background: {C.CARD} !important;
-    color: {C.T1} !important;
-    border: 1px solid {C.BORDER_MD} !important;
-    border-radius: 10px !important;
-    font-size: 0.85rem !important;
-    caret-color: {C.TEAL} !important;
-}}
-[data-testid="stSidebar"] [data-testid="stTextInput"] input::placeholder {{
-    color: {C.T4} !important;
-    opacity: 1 !important;
-}}
-[data-testid="stSidebar"] [data-testid="stTextInput"] input:focus {{
-    border-color: {C.TEAL} !important;
-    box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
-    outline: none !important;
-}}
-
-/* ── Fixed bar: input field ──────────────────────────────────────────────── */
+/* ── All text inputs (sidebar + main) ───────────────────────────────────── */
 [data-testid="stTextInput"] input {{
     background: {C.CARD} !important;
     border: 1px solid {C.BORDER_MD} !important;
     border-radius: 10px !important;
     color: {C.T1} !important;
-    font-size: 0.92rem !important;
+    font-size: 0.9rem !important;
     font-family: {FONT} !important;
     caret-color: {C.TEAL} !important;
     padding: 10px 14px !important;
     box-shadow: none !important;
 }}
 [data-testid="stTextInput"] input::placeholder {{
-    color: {C.T5} !important;
+    color: {C.T4} !important;
     opacity: 1 !important;
 }}
 [data-testid="stTextInput"] input:focus {{
@@ -379,12 +327,6 @@ hr {{
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
     outline: none !important;
 }}
-
-/* ── Fixed bar: Send ▶ button — key fbar_send ────────────────────────────── */
-button[data-testid="baseButton-secondary"][kind="secondary"] {{
-    /* fallback — will be overridden by more specific chip/send selectors */
-}}
-/* Target by aria-label or data-testid isn't reliable; use :last-child of its column */
 
 /* ── Chip / action buttons ───────────────────────────────────────────────── */
 .stButton > button {{
