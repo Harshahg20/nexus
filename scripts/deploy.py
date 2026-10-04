@@ -67,6 +67,8 @@ DEPLOY_ORDER = [
     "012_validation_views.sql",
     "013_nexus_semantic_view.sql",
     "014_nexus_agent.sql",
+    "016_interactive_scenarios.sql",   # Interactive parameterization
+    "017_resilience_score.sql",        # Composite resilience score
 ]
 
 def split_statements(sql: str) -> list[str]:

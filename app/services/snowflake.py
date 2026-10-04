@@ -207,68 +207,118 @@ def query_scalar(sql: str):
 
 # ── Scenario parameter helpers ────────────────────────────────────────────────
 
-# These are the only scenario parameters seeded in the database.
-# Any UI-level attempt to run a different scenario will return empty data.
-SUPPORTED_SCENARIOS: dict[str, dict] = {
-    "supplier_failure": {
-        "supplier_id":            "SUP-001",
-        "capacity_reduction_pct": 100,
-        "duration_days":          14,
-        "description":            "SUP-001 · 100% capacity loss · 14 days",
-    },
-    "port_disruption": {
-        "port_id":     "PORT-TYO",
-        "description": "PORT-TYO closure",
-    },
-    "freight_shock": {
-        "description": "Global freight cost shock",
-    },
-}
-
-
 def is_unsupported_scenario(params: dict) -> tuple[bool, str]:
     """
-    Compare *params* (from V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS) against the
-    seeded scenario configuration.
-
-    Returns (unsupported: bool, guidance: str).
-
-    guidance is a user-readable explanation of what IS supported when the
-    scenario appears to be outside the seeded parameters.
+    Legacy guard — kept for backward compatibility.
+    Since 016_interactive_scenarios.sql enabled table-driven parameterization,
+    any supplier or port loaded from SCENARIO_PARAMS is valid.
+    Always returns (False, "").
     """
-    if not params:
-        return False, ""   # empty params are handled by the component
-
-    sup = SUPPORTED_SCENARIOS["supplier_failure"]
-    sid      = str(params.get("FAILED_SUPPLIER_ID", "")).upper()
-    cap      = float(params.get("CAPACITY_REDUCTION_PCT", 0) or 0)
-    duration = int(params.get("DURATION_DAYS", 0) or 0)
-
-    mismatches = []
-    if sid and sid != sup["supplier_id"]:
-        mismatches.append(f"supplier `{sid}` (only `{sup['supplier_id']}` is seeded)")
-    if cap and abs(cap - sup["capacity_reduction_pct"]) > 0.1:
-        mismatches.append(
-            f"capacity reduction `{cap:.0f}%` "
-            f"(only `{sup['capacity_reduction_pct']:.0f}%` is seeded)"
-        )
-    if duration and duration != sup["duration_days"]:
-        mismatches.append(
-            f"duration `{duration} days` (only `{sup['duration_days']} days` is seeded)"
-        )
-
-    if mismatches:
-        guidance = (
-            "The active scenario parameters differ from the seeded configuration: "
-            + "; ".join(mismatches) + ". "
-            "The Snowflake scenario engine only has data for "
-            f"**{sup['description']}**. "
-            "Update `V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS` in Snowflake to match the "
-            "seeded values, or re-run `006_scenario_engine.sql` with the desired parameters."
-        )
-        return True, guidance
-
     return False, ""
+
+
+# ── Interactive scenario parameter writers ────────────────────────────────────
+
+def update_supplier_failure_params(
+    supplier_id: str,
+    capacity_reduction_pct: float,
+    duration_days: int,
+) -> bool:
+    """
+    Write new supplier failure parameters to SCENARIO_PARAMS.
+
+    Triggers a MERGE so every downstream view picks up the new values on the
+    next query (cache is cleared by the caller via _clear_scenario_cache()).
+
+    Returns True on success, False on any database error.
+    """
+    try:
+        session = get_session()
+        # Audit old values first
+        session.sql(
+            f"""
+            INSERT INTO NEXUS_DB.SCENARIOS.SCENARIO_PARAM_AUDIT
+                (scenario_type, param_key, old_value, new_value)
+            SELECT
+                'SUPPLIER_FAILURE',
+                param_key,
+                param_value,
+                CASE param_key
+                    WHEN 'supplier_id'            THEN '{supplier_id}'
+                    WHEN 'capacity_reduction_pct' THEN '{capacity_reduction_pct:.1f}'
+                    WHEN 'duration_days'          THEN '{duration_days}'
+                END
+            FROM NEXUS_DB.SCENARIOS.SCENARIO_PARAMS
+            WHERE scenario_type = 'SUPPLIER_FAILURE'
+              AND param_key IN ('supplier_id','capacity_reduction_pct','duration_days')
+            """
+        ).collect()
+
+        session.sql(
+            f"""
+            MERGE INTO NEXUS_DB.SCENARIOS.SCENARIO_PARAMS t
+            USING (
+                SELECT 'SUPPLIER_FAILURE' AS scenario_type, 'supplier_id'            AS param_key, '{supplier_id}'                 AS param_value UNION ALL
+                SELECT 'SUPPLIER_FAILURE',                   'capacity_reduction_pct',               '{capacity_reduction_pct:.1f}'               UNION ALL
+                SELECT 'SUPPLIER_FAILURE',                   'duration_days',                        '{duration_days}'
+            ) s ON t.scenario_type = s.scenario_type AND t.param_key = s.param_key
+            WHEN MATCHED     THEN UPDATE SET t.param_value = s.param_value, t.updated_at = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN INSERT (scenario_type, param_key, param_value) VALUES (s.scenario_type, s.param_key, s.param_value)
+            """
+        ).collect()
+        return True
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def update_port_disruption_params(
+    port_id: str,
+    disruption_pct: float,
+    duration_days: int,
+) -> bool:
+    """
+    Write new port disruption parameters to SCENARIO_PARAMS.
+    Returns True on success, False on any database error.
+    """
+    try:
+        session = get_session()
+        session.sql(
+            f"""
+            MERGE INTO NEXUS_DB.SCENARIOS.SCENARIO_PARAMS t
+            USING (
+                SELECT 'PORT_DISRUPTION' AS scenario_type, 'port_id'        AS param_key, '{port_id}'             AS param_value UNION ALL
+                SELECT 'PORT_DISRUPTION',                   'disruption_pct',               '{disruption_pct:.1f}'               UNION ALL
+                SELECT 'PORT_DISRUPTION',                   'duration_days',                '{duration_days}'
+            ) s ON t.scenario_type = s.scenario_type AND t.param_key = s.param_key
+            WHEN MATCHED     THEN UPDATE SET t.param_value = s.param_value, t.updated_at = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN INSERT (scenario_type, param_key, param_value) VALUES (s.scenario_type, s.param_key, s.param_value)
+            """
+        ).collect()
+        return True
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def clear_scenario_cache() -> None:
+    """
+    Bust the Streamlit data cache so scenario query results are re-fetched
+    from Snowflake after parameter changes.  Handles both st.cache_data and
+    legacy experimental_memo runtimes.
+    """
+    if hasattr(st, "cache_data"):
+        try:
+            st.cache_data.clear()
+        except Exception:
+            pass
+    if hasattr(st, "experimental_memo"):
+        try:
+            st.experimental_memo.clear()  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
 
 # ── Named data loaders (consumed by UI components) ────────────────────────────
@@ -332,3 +382,143 @@ def load_governed_metric_catalog() -> pd.DataFrame:
     Source: NEXUS_DB.ANALYTICS.V_NEXUS_GOVERNED_METRIC_CATALOG.
     """
     return query_df("SELECT * FROM NEXUS_DB.ANALYTICS.V_NEXUS_GOVERNED_METRIC_CATALOG")
+
+
+# ── Interactive scenario support loaders ──────────────────────────────────────
+
+def load_suppliers_list() -> pd.DataFrame:
+    """
+    Available suppliers for the interactive supplier-failure selector.
+    Source: NEXUS_DB.SCENARIOS.V_AVAILABLE_SUPPLIERS.
+    """
+    return query_df("SELECT * FROM NEXUS_DB.SCENARIOS.V_AVAILABLE_SUPPLIERS")
+
+
+def load_ports_list() -> pd.DataFrame:
+    """
+    Available ports for the interactive port-disruption selector.
+    Source: NEXUS_DB.SCENARIOS.V_AVAILABLE_PORTS.
+    """
+    return query_df("SELECT * FROM NEXUS_DB.SCENARIOS.V_AVAILABLE_PORTS")
+
+
+def load_port_disruption_parameters() -> dict:
+    """
+    Active port disruption configuration (port ID, disruption %, duration).
+    Source: NEXUS_DB.SCENARIOS.V_ACTIVE_PORT_DISRUPTION_PARAMETERS (1 row).
+    """
+    return query_row("SELECT * FROM NEXUS_DB.SCENARIOS.V_ACTIVE_PORT_DISRUPTION_PARAMETERS")
+
+
+def load_port_disruption_impact() -> dict:
+    """
+    Aggregate KPI row for the active port-disruption scenario.
+    Source: NEXUS_DB.SCENARIOS.V_PORT_DISRUPTION_IMPACT (1 row).
+    """
+    return query_row("SELECT * FROM NEXUS_DB.SCENARIOS.V_PORT_DISRUPTION_IMPACT")
+
+
+def load_freight_shock_summary() -> dict:
+    """
+    Aggregate KPI row for the freight shock scenario.
+    Source: NEXUS_DB.SCENARIOS.V_FREIGHT_SHOCK_SUMMARY (1 row).
+    """
+    return query_row("SELECT * FROM NEXUS_DB.SCENARIOS.V_FREIGHT_SHOCK_SUMMARY")
+
+
+def load_freight_shock_chain() -> pd.DataFrame:
+    """
+    Per-part sourcing options under the freight shock scenario.
+    Source: NEXUS_DB.SCENARIOS.V_FREIGHT_SHOCK_CHAIN.
+    """
+    return query_df(
+        "SELECT part_id, supplier_id, supplier_name, required_units, "
+        "protected_units, uncovered_units, modeled_freight_cost, lead_time_days "
+        "FROM NEXUS_DB.SCENARIOS.V_FREIGHT_SHOCK_CHAIN "
+        "ORDER BY part_id, modeled_freight_cost"
+    )
+
+
+def load_resilience_score() -> dict:
+    """
+    Composite supply chain resilience score (0–100) and component breakdown.
+    Source: NEXUS_DB.ANALYTICS.V_SUPPLY_CHAIN_RESILIENCE_SCORE (1 row).
+    """
+    return query_row("SELECT * FROM NEXUS_DB.ANALYTICS.V_SUPPLY_CHAIN_RESILIENCE_SCORE")
+
+
+def load_scenario_params_history() -> pd.DataFrame:
+    """
+    Audit log of scenario parameter changes.
+    Source: NEXUS_DB.SCENARIOS.SCENARIO_PARAM_AUDIT.
+    """
+    return query_df(
+        "SELECT scenario_type, param_key, old_value, new_value, changed_at "
+        "FROM NEXUS_DB.SCENARIOS.SCENARIO_PARAM_AUDIT "
+        "ORDER BY changed_at DESC LIMIT 20"
+    )
+
+
+def generate_executive_brief(
+    impact: dict,
+    params: dict,
+    model: str = "mistral-large2",
+) -> str:
+    """
+    Use Snowflake Cortex COMPLETE to generate a 2-paragraph executive brief
+    describing the active scenario impact and recommended mitigations.
+
+    Returns the brief text, or an empty string on any error.
+    """
+    supplier = params.get("FAILED_SUPPLIER_ID", "SUP-001")
+    capacity = float(params.get("CAPACITY_REDUCTION_PCT", 100) or 100)
+    duration = int(params.get("DURATION_DAYS", 14) or 14)
+    revenue  = float(impact.get("REVENUE_EXPOSURE", 0) or 0)
+    orders   = int(impact.get("ORDERS_AT_RISK", 0) or 0)
+    customers = int(impact.get("CUSTOMERS_EXPOSED", 0) or 0)
+    parts    = int(impact.get("AFFECTED_PARTS", 0) or 0)
+    plants   = int(impact.get("AFFECTED_PLANTS", 0) or 0)
+    units    = int(impact.get("UNITS_AT_RISK", 0) or 0)
+
+    prompt = (
+        "You are a senior supply chain risk analyst. Write a concise two-paragraph "
+        "executive brief in plain business English. No markdown headers. No bullet points. "
+        "Use the exact numbers provided.\\n\\n"
+        f"SCENARIO: Supplier {supplier} loses {capacity:.0f}% of production capacity "
+        f"for {duration} days.\\n\\n"
+        f"IMPACT (from NEXUS deterministic allocation engine):\\n"
+        f"- Revenue at Risk: ${revenue/1_000_000:.2f}M\\n"
+        f"- Orders Disrupted: {orders}\\n"
+        f"- Customers Exposed: {customers}\\n"
+        f"- Parts with Shortage: {parts}\\n"
+        f"- Manufacturing Plants Affected: {plants}\\n"
+        f"- Units at Risk: {units:,}\\n\\n"
+        "Paragraph 1 (3 sentences): State the business impact and urgency level — "
+        "use the specific revenue figure and customer count.\\n"
+        "Paragraph 2 (3 sentences): Recommend the two highest-leverage mitigations "
+        "(choose from: expedite in-transit shipments, activate alternate qualified suppliers, "
+        "reallocate inventory from low-risk plants). Be specific and actionable."
+    )
+
+    # Escape single quotes for SQL literal embedding
+    safe_prompt = prompt.replace("'", "\\'")
+
+    try:
+        session = get_session()
+        rows = session.sql(
+            f"SELECT SNOWFLAKE.CORTEX.COMPLETE('{model}', '{safe_prompt}') AS brief"
+        ).collect()
+        if rows:
+            return str(rows[0]["BRIEF"]).strip()
+    except Exception as exc:
+        # Fall back to a simpler model if primary unavailable
+        try:
+            session2 = get_session()
+            rows2 = session2.sql(
+                f"SELECT SNOWFLAKE.CORTEX.COMPLETE('llama3.1-70b', '{safe_prompt}') AS brief"
+            ).collect()
+            if rows2:
+                return str(rows2[0]["BRIEF"]).strip()
+        except Exception:
+            pass
+    return ""

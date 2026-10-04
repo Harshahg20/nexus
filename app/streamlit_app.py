@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="NEXUS — Supply Chain Resilience",
     page_icon="◆",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",   # Open sidebar so judges see the controls
 )
 
 # ── Inject safe global CSS (no @import, no custom class deps) ─────────────────
@@ -25,63 +25,40 @@ from ui.theme import GLOBAL_CSS, C, FONT, SHADOW_MD
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 
 
-# ─── SIDEBAR ─────────────────────────────────────────────────────────────────
-from services.snowflake import (
-    load_supplier_failure_parameters as _sb_load_params,
-    load_supplier_failure_impact as _sb_load_impact,
-)
-_sb_params = _sb_load_params()
-_sb_supplier = _sb_params.get("FAILED_SUPPLIER_ID", "SUP-001") if _sb_params else "SUP-001"
-_sb_capacity = float(_sb_params.get("CAPACITY_REDUCTION_PCT", 100) or 100) if _sb_params else 100
-_sb_duration = int(_sb_params.get("DURATION_DAYS", 14) or 14) if _sb_params else 14
+# ─── SIDEBAR — Interactive Scenario Controls ──────────────────────────────────
+from ui.theme import FONT as _FONT
 
 with st.sidebar:
     st.markdown(
-        f"<div style='text-align:center;padding:8px 0 16px;font-family:{FONT};'>"
+        f"<div style='text-align:center;padding:8px 0 14px;font-family:{_FONT};'>"
         f"<div style='font-size:1.2rem;font-weight:800;color:#0F172A;"
         f"letter-spacing:-0.02em;margin-bottom:4px;'>◆ NEXUS</div>"
         f"<div style='font-size:0.62rem;color:#94A3B8;text-transform:uppercase;"
         f"letter-spacing:0.15em;'>Supply Chain Intelligence</div></div>",
         unsafe_allow_html=True,
     )
-    st.markdown("---")
-
     # Powered by Snowflake badge
     st.markdown(
-        "<div style='padding:10px 14px;background:rgba(0,196,154,0.06);"
+        "<div style='padding:8px 12px;background:rgba(0,196,154,0.06);"
         "border:1px solid rgba(0,196,154,0.22);border-radius:10px;"
-        "text-align:center;margin-bottom:12px;'>"
+        "text-align:center;margin-bottom:10px;'>"
         "<div style='font-size:0.58rem;font-weight:700;text-transform:uppercase;"
-        "letter-spacing:0.12em;color:#007A5E;margin-bottom:3px;'>Powered by</div>"
-        "<div style='font-size:1.0rem;font-weight:800;color:#007A5E;'>❄️ Snowflake</div>"
-        "<div style='font-size:0.62rem;color:#94A3B8;margin-top:3px;'>"
+        "letter-spacing:0.12em;color:#007A5E;margin-bottom:2px;'>Powered by</div>"
+        "<div style='font-size:0.95rem;font-weight:800;color:#007A5E;'>❄️ Snowflake</div>"
+        "<div style='font-size:0.6rem;color:#94A3B8;margin-top:2px;'>"
         "Cortex &nbsp;·&nbsp; Snowpark &nbsp;·&nbsp; SiS</div>"
         "</div>",
         unsafe_allow_html=True,
     )
-
-    # Active scenario info
-    st.markdown(
-        f"<div style='font-size:0.6rem;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.12em;color:#94A3B8;margin-bottom:8px;font-family:{FONT};'>"
-        f"Active Scenario</div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f"<div style='padding:10px 14px;background:rgba(220,38,38,0.05);"
-        f"border:1px solid rgba(220,38,38,0.18);border-radius:10px;margin-bottom:12px;"
-        f"font-family:{FONT};'>"
-        f"<div style='font-size:0.78rem;font-weight:700;color:#DC2626;margin-bottom:5px;'>"
-        f"⚠ Supplier Failure</div>"
-        f"<div style='font-size:0.72rem;color:#334155;margin-bottom:2px;'>"
-        f"{_sb_supplier} &nbsp;·&nbsp; {_sb_capacity:.0f}% capacity loss</div>"
-        f"<div style='font-size:0.68rem;color:#94A3B8;'>{_sb_duration}-day disruption window</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
     st.markdown("---")
 
+# ── Render interactive scenario controls in the sidebar ───────────────────────
+from components.scenario_controls import render_sidebar as _render_sidebar
+_render_sidebar()
+
+# ── Continue sidebar footer ───────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("---")
     # GitHub link
     st.markdown(
         "<a href='https://github.com/Harshahg20/nexus' target='_blank' "
@@ -91,13 +68,35 @@ with st.sidebar:
         "⬡ View on GitHub</span></a>",
         unsafe_allow_html=True,
     )
-
-    # Hackathon watermark
     st.markdown(
         "<div style='text-align:center;padding:8px 0 4px;'>"
-        "<div style='font-size:0.58rem;color:#CBD5E1;'>Snowflake CoCo CLI Hackathon</div>"
+        "<div style='font-size:0.58rem;color:#CBD5E1;'>Snowflake CoCo CLI Hackathon 2026</div>"
         "</div>",
         unsafe_allow_html=True,
+    )
+
+# Re-load current params after potential sidebar updates
+from services.snowflake import (
+    load_supplier_failure_parameters as _sb_load_params,
+    load_supplier_failure_impact as _sb_load_impact,
+)
+_sb_params   = _sb_load_params()
+_sb_supplier = _sb_params.get("FAILED_SUPPLIER_ID", "SUP-001") if _sb_params else "SUP-001"
+_sb_capacity = float(_sb_params.get("CAPACITY_REDUCTION_PCT", 100) or 100) if _sb_params else 100
+_sb_duration = int(_sb_params.get("DURATION_DAYS", 14) or 14) if _sb_params else 14
+
+
+# ── Helper: resilience score bar component ────────────────────────────────────
+def _rs_comp(label: str, value: float, max_val: float, color: str) -> str:
+    pct = int(100 * value / max_val) if max_val > 0 else 0
+    return (
+        f'<div class="rs-comp">'
+        f'  <div class="rs-comp-lbl">{label}</div>'
+        f'  <div class="rs-comp-val">{value:.1f} / {max_val:.0f}</div>'
+        f'  <div class="rs-track">'
+        f'    <div class="rs-fill" style="width:{pct}%;background:{color};"></div>'
+        f'  </div>'
+        f'</div>'
     )
 
 
@@ -254,6 +253,123 @@ body {{
 """, height=310)
 
 
+# ─── AI EXECUTIVE BRIEF (shown when generated from sidebar) ──────────────────
+if st.session_state.get("exec_brief_fresh") and st.session_state.get("exec_brief"):
+    brief_text = st.session_state["exec_brief"]
+    st.session_state["exec_brief_fresh"] = False   # Don't flash again on next render
+    import streamlit.components.v1 as _comp_brief
+    _comp_brief.html(
+        f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+* {{ box-sizing:border-box; margin:0; padding:0; font-family:{FONT}; }}
+body {{ background:transparent; padding:0; }}
+.brief {{
+  background:linear-gradient(135deg,rgba(0,196,154,0.06) 0%,rgba(8,145,178,0.06) 100%);
+  border:1px solid rgba(0,196,154,0.28); border-left:4px solid #00C49A;
+  border-radius:0 14px 14px 0; padding:20px 24px;
+  box-shadow:0 2px 8px rgba(0,196,154,0.1);
+}}
+.brief-label {{
+  font-size:0.58rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.15em; color:#007A5E; margin-bottom:10px;
+}}
+.brief-text {{ font-size:0.82rem; color:#1E293B; line-height:1.7; }}
+</style>
+</head><body>
+<div class="brief">
+  <div class="brief-label">🤖 AI Executive Brief — Generated by Snowflake Cortex</div>
+  <div class="brief-text">{brief_text.replace(chr(10), '<br><br>')}</div>
+</div>
+</body></html>""",
+        height=250,
+    )
+    st.caption(
+        "Generated by `SNOWFLAKE.CORTEX.COMPLETE` using live scenario KPIs. "
+        "Not an operational guarantee — for strategic planning only."
+    )
+
+# ─── RESILIENCE SCORE ────────────────────────────────────────────────────────
+from services.snowflake import load_resilience_score as _load_rs
+_rs = _load_rs()
+if _rs:
+    _score = float(_rs.get("RESILIENCE_SCORE", 0) or 0)
+    _tier  = str(_rs.get("RESILIENCE_TIER", "MODERATE"))
+    _tier_color = {"STRONG": "#16A34A", "MODERATE": "#D97706", "CRITICAL": "#DC2626"}.get(_tier, "#64748B")
+    _div_score  = float(_rs.get("SUPPLIER_DIVERSITY_SCORE",  0) or 0)
+    _rev_score  = float(_rs.get("REVENUE_BUFFER_SCORE",     0) or 0)
+    _inv_score  = float(_rs.get("INVENTORY_BUFFER_SCORE",   0) or 0)
+    _mit_score  = float(_rs.get("MITIGATION_READINESS_SCORE",0) or 0)
+    _sing_crit  = int(_rs.get("SINGLE_SOURCE_CRITICAL", 0) or 0)
+    _avg_cov    = float(_rs.get("AVG_INVENTORY_COVERAGE_DAYS", 0) or 0)
+
+    import streamlit.components.v1 as _comp_rs
+    _comp_rs.html(
+        f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+* {{ box-sizing:border-box; margin:0; padding:0; font-family:{FONT}; }}
+body {{ background:transparent; padding:2px 0; }}
+.rs-wrap {{
+  background:#fff; border:1px solid #E2E8F0; border-radius:16px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+}}
+.rs-top {{
+  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+  padding:18px 22px; border-bottom:1px solid #F1F5F9;
+}}
+.rs-badge {{
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; width:90px; height:90px;
+  border-radius:50%; border:3px solid {_tier_color};
+  flex-shrink:0;
+}}
+.rs-num {{ font-size:1.7rem; font-weight:800; color:{_tier_color}; line-height:1; }}
+.rs-max {{ font-size:0.6rem; color:#94A3B8; font-weight:600; }}
+.rs-info {{ flex:1; }}
+.rs-tier {{ font-size:0.62rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.14em; color:{_tier_color}; margin-bottom:4px; }}
+.rs-title {{ font-size:1.1rem; font-weight:800; color:#0F172A; margin-bottom:6px; }}
+.rs-sub {{ font-size:0.72rem; color:#64748B; line-height:1.5; }}
+.rs-bars {{ display:flex; gap:10px; flex-wrap:wrap; padding:14px 22px; }}
+.rs-comp {{ flex:1; min-width:120px; }}
+.rs-comp-lbl {{ font-size:0.58rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.1em; color:#94A3B8; margin-bottom:4px; }}
+.rs-comp-val {{ font-size:0.75rem; font-weight:700; color:#0F172A; margin-bottom:5px; }}
+.rs-track {{ height:6px; background:#F1F5F9; border-radius:3px; }}
+.rs-fill {{ height:6px; border-radius:3px; }}
+</style>
+</head><body>
+<div class="rs-wrap">
+  <div class="rs-top">
+    <div class="rs-badge">
+      <div class="rs-num">{_score:.0f}</div>
+      <div class="rs-max">/ 100</div>
+    </div>
+    <div class="rs-info">
+      <div class="rs-tier">{_tier} RESILIENCE</div>
+      <div class="rs-title">Supply Chain Resilience Score</div>
+      <div class="rs-sub">
+        {_sing_crit} single-source critical parts &nbsp;·&nbsp;
+        {_avg_cov:.1f}d avg inventory coverage &nbsp;·&nbsp;
+        Scenario: {_sb_supplier} {_sb_capacity:.0f}% loss
+      </div>
+    </div>
+  </div>
+  <div class="rs-bars">
+    {_rs_comp("Supplier Diversity", _div_score, 30, "#2563EB")}
+    {_rs_comp("Revenue Buffer",     _rev_score, 30, "#DC2626")}
+    {_rs_comp("Inventory Buffer",   _inv_score, 20, "#00C49A")}
+    {_rs_comp("Mitigation Readiness", _mit_score, 20, "#7C3AED")}
+  </div>
+</div>
+</body></html>""",
+        height=220,
+    )
+    st.caption(
+        "Source: `NEXUS_DB.ANALYTICS.V_SUPPLY_CHAIN_RESILIENCE_SCORE` · "
+        "Composite governance metric: Supplier Diversity (30) + Revenue Buffer (30) + "
+        "Inventory Buffer (20) + Mitigation Readiness (20) = 100."
+    )
+
 # ─── KPI STRIP ───────────────────────────────────────────────────────────────
 from components import kpi_cards
 kpi_cards.render()
@@ -313,27 +429,15 @@ mitigation_table.render()
 
 st.markdown("---")
 
-# ─── PORT DISRUPTION SCENARIO ────────────────────────────────────────────────
-with st.expander("🚢  Port Disruption Scenario — PORT-TYO (7-day disruption)", expanded=False):
-    st.caption(
-        "Alternative scenario: Tokyo port (PORT-TYO) closure propagated through the supply chain. "
-        "Blocked shipments create part shortages at downstream plants, disrupting orders and customers."
-    )
-    try:
-        from services.snowflake import get_session as _get_session
-        _port_session = _get_session()
-        _port_df = _port_session.sql(
-            "SELECT supplier_name, part_name, plant_name, customer_name, "
-            "at_risk_quantity, at_risk_revenue, sla_tier "
-            "FROM NEXUS_DB.SCENARIOS.V_PORT_DISRUPTION_CHAIN LIMIT 20"
-        ).to_pandas()
-        if not _port_df.empty:
-            from ui.compat import st_dataframe
-            st_dataframe(_port_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No port disruption impact data found — the view returned no rows.")
-    except Exception as _port_exc:
-        st.info(f"Port disruption view not available: {_port_exc}")
+# ─── MULTI-SCENARIO COMPARISON ───────────────────────────────────────────────
+from components.scenario_comparison import render as _render_comparison
+_render_comparison()
+
+st.markdown("---")
+
+# ─── FREIGHT SHOCK PANEL ─────────────────────────────────────────────────────
+from components.freight_shock_panel import render as _render_freight
+_render_freight()
 
 st.markdown("---")
 
