@@ -1,185 +1,169 @@
-# NEXUS Demo Script
-## Snowflake CoCo CLI Hackathon — GCC Edition
+# NEXUS — 5-Minute Demo Script
+## Snowflake CoCo CLI Hackathon — GCC Edition 2026
 
-**Theme:** Supply-Chain Ontology and Governed Conversational Analytics  
-**Total time:** 5 minutes  
-**Central scenario:** SUP-001 (Apex Components, Japan, CRITICAL risk tier) — 100% capacity failure, 14 days
-
----
-
-## Demo Story
-
-> "Every supply chain team faces the same three questions when a disruption hits: *What's broken? What do we do? What does the data say?* NEXUS answers all three — instantly, from governed Snowflake data."
-
-**Journey: Detect → Ask → Trace → Simulate → Decide → Evidence**
+**Theme:** Supply Chain Ontology and Governed Conversational Analytics
+**Total time:** 5 minutes 00 seconds
+**Central scenario:** SUP-001 (Apex Components, Japan, CRITICAL) — 100% capacity failure, 14 days
+**Demo URL:** https://app.snowflake.com/ysyhgbx/cz11690/#/streamlit-apps/NEXUS_DB.STREAMLIT_APP.NEXUS_APP
 
 ---
 
-## Step 1 — Detect (30 seconds)
+## THE STORY IN ONE SENTENCE
 
-Open the NEXUS Executive Command Center (Streamlit app).
-
-**Show the KPI strip (6 live metrics):**
-
-| Metric | What it means |
-|---|---|
-| Revenue Exposure | Total at-risk revenue under the active scenario |
-| Orders at Risk | Count of open orders with a confirmed supply deficit |
-| Parts With Shortage | Distinct components with unmet demand |
-| Customers Exposed | Buyers with at least one at-risk order |
-| Affected Plants | Manufacturing sites with shortage-affected production |
-| Units at Risk | Total unmet units across all at-risk orders |
-
-**Say:** "This is live Snowflake data. SUP-001 — Apex Components, our CRITICAL-tier Japanese supplier — is modeled as 100% unavailable for 14 days. NEXUS has already computed the downstream exposure."
+> A critical Japanese supplier just went dark. Every operations team faces the same three questions: *What's broken? What do we do about it? And can we trust the numbers?* NEXUS answers all three — in under five minutes, from governed Snowflake data.
 
 ---
 
-## Step 2 — Ask (45 seconds)
+## SEGMENT 1 — THE PROBLEM (0:00–0:30)
 
-**Scroll to the NEXUS chat panel. Ask:**
+**[Don't open the app yet. Look at the judges.]**
 
-> "What breaks if SUP-001 is unavailable for 14 days?"
+"Gartner estimates supply chain disruptions cost manufacturers $184 billion per year. But the real cost isn't the disruption itself — it's the *decision lag*. An analyst pulls an ERP export. A planner emails four teams. Someone builds a spreadsheet. By the time you understand what's broken, you've already missed your PLATINUM customers' SLA window.
 
-**Or click:** `→ SUP-001 failure impact?`
+NEXUS eliminates that lag. Watch."
 
-**While the agent responds, narrate:**
-
-"NEXUS routes this to its deterministic scenario engine — not a language model guess. It traces the qualified sourcing relationship: SUP-001 is approved to supply PART-104 (Precision Motor), PART-111 (Safety Controller), and PART-102 (Power Module). It then finds which in-transit shipments are lost, recalculates supply, re-runs priority allocation, and surfaces the orders that can't be fulfilled."
-
-**The agent answer will include:**
-- Supplier ID and risk tier
-- Affected parts with criticality
-- Orders at risk with revenue exposure
-- Customers exposed with SLA tier
-- Modeled mitigation options
+**[Open the app.]**
 
 ---
 
-## Step 3 — Trace (45 seconds)
+## SEGMENT 2 — DASHBOARD WALKTHROUGH (0:30–2:00)
 
-**Scroll to "Failure Propagation — SUP-001 Causal Impact"**
+**[The KPI strip loads at the top of the screen.]**
 
-**Show the animated cascade:**
+"These six numbers are live from Snowflake — no cached CSV, no pre-computed slide. Right now, with SUP-001 modeled as 100% unavailable for 14 days:
+
+- **$2.1 million** in revenue is at risk
+- **17 open orders** cannot be fulfilled
+- **3 critical parts** are in shortage
+- **3 customers** — including two PLATINUM-tier accounts — are exposed
+
+That's the business impact, computed in seconds from a single deterministic SQL engine."
+
+**[Point to the scenario banner below the KPI strip.]**
+
+"The active scenario: Apex Components, our CRITICAL-tier Japanese supplier, SUP-001, 100% capacity reduction starting September 18. Changing this parameter in Snowflake re-propagates the entire chain automatically."
+
+**[Scroll down to the Failure Propagation section.]**
+
+"Now here's what makes NEXUS different from a dashboard. This isn't a KPI. This is the *causal chain.*"
+
+---
+
+## SEGMENT 3 — CASCADE CHAIN (2:00–3:00)
+
+**[Point to the animated cascade.]**
+
+"Watch the dependency trace:
 
 ```
 SUP-001 (Apex Components)
-  ↓  qualified supplier → parts
-PART-104 · CRITICAL  /  PART-111 · CRITICAL
-  ↓  parts consumed by products in BOM
-PROD-001 (Nexus Drive)  /  PROD-005 (Nexus Safety Unit)
-  ↓  products ordered by customers
-PLT-001 Tokyo  /  PLT-002 Osaka
-  ↓  plants fulfil orders
-ORD-002 · ORD-004 · ORD-011 · ORD-017 ...
-  ↓  orders placed by customers
-CUST-001 Kanto Robotics (PLATINUM)
-CUST-002 Sakura Mobility (GOLD)
-CUST-003 Pacific Automation (PLATINUM)
+  ↓  qualified supplier → PART-104 (Precision Motor, CRITICAL)
+                       → PART-111 (Safety Controller, CRITICAL)
+  ↓  parts required by product BOM
+PROD-001 (Nexus Drive)  →  PROD-005 (Nexus Safety Unit)
+  ↓  products fulfil orders at plants
+PLT-001 (Tokyo Assembly)  ·  PLT-002 (Osaka Systems)
+  ↓  plants fulfil open customer orders
+ORD-002  ·  ORD-004  ·  ORD-011  ·  ORD-017 …
+  ↓  orders belong to customers
+CUST-001 Kanto Robotics  [PLATINUM]
+CUST-003 Pacific Automation  [PLATINUM]
 ```
 
-**Open the "Parts in SUP-001 Cascade" expander** — shows PART-104 and PART-111 with at-risk revenue.
+Every node here is a governed entity from `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` — our native Snowflake Semantic View. The dependency path uses `SUPPLIER_PARTS`, the *authoritative* qualification table, not shipment history. That governance decision is encoded in the semantic view's AI SQL generation rules."
 
-**Open the "Customers in SUP-001 Cascade" expander** — shows PLATINUM and GOLD SLA customers.
+**[Open the 'Customers in SUP-001 Cascade' expander.]**
 
-**Say:** "Every node here is a governed entity from our semantic layer. The dependency path uses `SUPPLIER_PARTS` — the authoritative qualification table — not just shipment history."
-
----
-
-## Step 4 — Simulate (30 seconds)
-
-**Point to the scenario banner:**
-
-> SUP-001 · 100% capacity reduction · 14 days · starting 2026-09-18
-
-**Say:** "The scenario parameters are deterministic. Changing them in Snowflake re-propagates the entire chain — every order, every customer, every part — in seconds."
-
-**Show the Impact Details section** (scroll below the cascade):
-- Parts in cascade: confirmed shortage parts from SUP-001's portfolio
-- Plants in cascade: manufacturing sites affected
-- Orders in cascade: individual at-risk orders with revenue
-- Customers in cascade: buyers sorted by at-risk exposure
+"PLATINUM customers first — because that's how a real prioritization engine works."
 
 ---
 
-## Step 5 — Decide (75 seconds)
+## SEGMENT 4 — NEXUS CHAT — AI AGENT (3:00–4:30)
 
-**Scroll to "Compare Mitigations"**
+**[Scroll to the NEXUS chat panel.]**
 
-**Show the four-strategy comparison panel:**
+**TYPE OR CLICK:** `What breaks if SUP-001 is unavailable for 14 days?`
 
-| Strategy | What it models |
-|---|---|
-| **No Action** | Absorb the full disruption — baseline |
-| **Expedite Shipment** | Rush in-transit goods via alternate freight (25% cost premium) |
-| **Reallocate Inventory** | Transfer surplus stock from non-deficit plants (15% logistics cost) |
-| **Alternate Supplier** | Source from other qualified suppliers for the 14-day window |
+**[While the agent responds, narrate:]**
 
-**Walk through each card:**
+"NEXUS routes this to `RUN_ACTIVE_SUPPLIER_FAILURE` — a deterministic SQL UDF, not a language model guess. The Cortex Agent calls it, gets a structured JSON response, and synthesizes an evidence-backed answer. Every metric in the response is traceable to a governed Snowflake view."
 
-- **No Action:** full revenue exposure, no cost
-- **Expedite:** partial recovery, modest cost — gets goods already in-transit
-- **Reallocate Inventory:** PART-104 has surplus at PLT-005 (Munich/Singapore) that can cover the deficit at PLT-001 and PLT-002 — lowest cost per unit recovered
-- **Alternate Supplier:** highest recovery — SUP-002 and SUP-005 are pre-qualified for PART-104 with 450 and 300 unit/day capacity respectively; highest incremental cost
+**[Read 2-3 lines from the agent answer aloud. Then ask a second question.]**
 
-**Say:** "NEXUS doesn't recommend a single answer — it shows the trade-offs. Operations leadership can choose based on cost, customer SLA, and risk appetite. The PLATINUM customers — Kanto Robotics and Pacific Automation — will drive the decision."
+**TYPE:** `Which customers are exposed to a PART-104 shortage?`
+
+"Now it routes to Cortex Analyst — text-to-SQL against our Semantic View. The verified query traces: `supplier_parts → parts → product_parts → orders → customers`. Kanto Robotics and Pacific Automation come back because that's what the data says — no hallucination, no approximation."
 
 ---
 
-## Step 6 — Evidence (30 seconds)
+## SEGMENT 5 — MITIGATION (4:30–5:00)
 
-**Scroll to "Evidence & Modeling"**
+**[Scroll to 'Compare Mitigations'.]**
 
-**Show the two panels:**
-- **Observed/Governed Data** — 7 RAW source tables in NEXUS_DB
-- **Modeled Scenario Outputs** — 6 SCENARIOS views including V_SUPPLIER_FAILURE_IMPACT and V_MITIGATION_COMPARISON
+"NEXUS doesn't just show the problem — it shows the response options.
 
-**Open "Governed Metric Definitions"** expander — shows metric name, definition, and source view for every KPI.
+| Strategy | Cost | Revenue Protected |
+|---|---|---|
+| No Action | $0 | $0 — full $2.1M exposed |
+| Expedite Shipment | 25% freight premium | Partial — recovers in-transit goods |
+| **Reallocate Inventory** | **15% logistics** | **Highest value, lowest cost** — surplus at PLT-005 Munich covers PLT-001 and PLT-002 deficits |
+| Alternate Supplier | Sourcing premium | Full recovery — SUP-002 and SUP-005 are pre-qualified for PART-104 |
 
-**Say:** "Every number on this screen is traceable to a Snowflake governed source. The agent uses the same semantic definitions as the dashboard. There's no silent column rename or ambiguous calculation."
-
----
-
-## Closing Message (15 seconds)
-
-> "NEXUS doesn't just answer what happened.  
-> It traces what breaks next, lets you test what to do about it,  
-> and shows the evidence behind every answer —  
-> all from a native Snowflake semantic view, a deterministic scenario engine,  
-> and a Cortex Agent that speaks the language of your supply chain."
+Operations leadership chooses based on cost, customer SLA, and risk appetite. NEXUS surfaces the trade-offs — it doesn't make the call for you."
 
 ---
 
-## Optional Chat Questions (if time allows)
+## CLOSING (4:55–5:00)
+
+**[Look up from the screen.]**
+
+"NEXUS is three things in one Snowflake account:
+- A **governed semantic layer** — one definition, used by both the dashboard and the AI agent
+- A **deterministic scenario engine** — pure SQL views, reproducible results, no black box
+- A **Cortex Agent** — natural language over the same governed data, with evidence
+
+Everything you saw ran inside Snowflake. No external APIs. No hidden models. No spreadsheets.
+
+Thank you."
+
+---
+
+## OPTIONAL QUESTIONS (if time allows)
 
 | Question | What it demonstrates |
 |---|---|
-| `Which customers are exposed to PART-104?` | BOM dependency tracing via semantic view |
-| `What happens if PORT-TYO is disrupted?` | Port disruption engine (different from supplier failure) |
-| `Which parts are single-sourced?` | Supplier concentration analytics |
-| `Compare alternate supplier versus expedited freight` | Mitigation comparison via Cortex tools |
-| `Show me the dependency chain for CUST-003` | Full ontology traversal |
+| `Which parts are single-sourced?` | Supplier concentration via Semantic View `qualified_source_count` metric |
+| `What happens if PORT-TYO is disrupted?` | Port disruption engine — different propagation path (port → shipments → plants → orders) |
+| `Compare alternate supplier versus expedited freight` | `COMPARE_ACTIVE_MITIGATIONS` UDF — all 4 strategies with modeled cost |
+| `Show me the dependency chain for CUST-003` | Full ontology traversal Q10 verified query |
+| `Which plants have the lowest inventory coverage?` | Q3 verified query — `on_hand_units / daily_consumption` sorted ascending |
 
 ---
 
-## Key Talking Points
+## KEY TALKING POINTS FOR JUDGES
 
-- **All business logic lives in Snowflake** — the Streamlit UI is a pure presentation layer
-- **SUPPLIER_PARTS is the authoritative qualification table** — not SHIPMENTS history; this is a governance decision that prevents wrong dependency traces
-- **Four mitigation strategies are modeled** — including Inventory Reallocation which requires no new procurement, only logistics cost
-- **Scenario outputs are labeled "modeled"** — the agent and UI distinguish observed data from scenario estimates throughout
-- **The semantic view drives both the dashboard and the agent** — one governed definition, two consumption paths
+| Point | Detail |
+|---|---|
+| All business logic lives in Snowflake | Streamlit is a pure presentation layer — zero business logic in Python |
+| `SUPPLIER_PARTS` is authoritative | Not `SHIPMENTS` — this governance decision is enforced in the Semantic View AI SQL rules |
+| 4 mitigation strategies modeled | Including Inventory Reallocation — no new procurement, only logistics cost |
+| Scenario outputs are labeled "modeled" | Agent and dashboard distinguish observed data from scenario estimates throughout |
+| One semantic view, two consumers | Both the dashboard and the Cortex Agent use `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` |
+| 33 regression tests | `009_scenario_tests.sql` + `015_extended_tests.sql` — all invariants verified |
 
 ---
 
-## Technical Highlights for Judges
+## TECHNICAL HIGHLIGHTS TABLE
 
 | Snowflake Feature | Usage in NEXUS |
 |---|---|
-| Native Semantic View (`CREATE SEMANTIC VIEW`) | `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` — 11 tables, 14 metrics, 10 verified queries |
-| Cortex Agent | `NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT` with 4 tool UDFs |
-| Cortex Analyst (text-to-SQL) | Backed by the semantic view for baseline analytics |
-| Deterministic Scenario Engine | Pure SQL views — no procedural code, no external ML |
-| Priority Allocation | Window function (`SUM OVER ... ROWS PRECEDING`) — reproduces order fulfillment logic |
-| Governed Metrics | 14 defined metrics in the semantic view + 5 metrics in the governed catalog |
-| Snowpark (key-pair auth) | Python Snowpark session with RSA key authentication |
-| Streamlit | 7-section dashboard rendered from live Snowflake queries |
+| `CREATE SEMANTIC VIEW` | `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` — 11 tables, 13 relationships, 14 metrics, 10 verified queries |
+| `CREATE AGENT` | `NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT` — orchestrates Cortex Analyst + 4 generic SQL UDF tools |
+| Cortex Analyst (text-to-SQL) | Embedded as `nexus_analyst` tool in the Agent; backed by the Semantic View |
+| Deterministic Scenario Engine | Pure SQL views — no procedural code, reproducible results |
+| Priority Allocation Window Function | `SUM OVER (PARTITION BY plant_id, part_id ORDER BY priority ROWS UNBOUNDED PRECEDING)` |
+| Snowpark Python (key-pair auth) | RSA key-pair authentication, session management, TTL-cached query execution |
+| Streamlit-in-Snowflake | Native SiS deployment — shareable URL, no external hosting |
+| `OBJECT_CONSTRUCT` / `ARRAY_AGG` | UDFs return structured JSON consumed by the Cortex Agent as tool responses |
+| AI SQL generation rules | 15 governance rules preventing revenue double-counting and hallucinated qualifications |
+| AI verified queries | 10 verified queries with `VERIFIED_AT` timestamps — grounded, deterministic reference SQL |

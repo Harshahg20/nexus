@@ -1,140 +1,187 @@
-# NEXUS — Supply Chain Resilience Command Center
+# NEXUS — Supply Chain Resilience Intelligence
 
-> **Snowflake CoCo CLI Hackathon submission.**
-> Built on Snowflake Cortex AI, Snowpark, a native Semantic View, and a deterministic scenario engine — entirely within Snowflake.
+> **When a critical supplier goes dark, every minute of confusion is revenue bleeding away.**
+> Global manufacturers lose an estimated **$184 billion per year** to supply chain disruptions — yet most operations teams still piece together impact from disconnected ERP exports, spreadsheets, and gut feel. NEXUS changes that: ask a plain-English question, get a governed, evidence-backed answer in seconds, straight from Snowflake.
 
 ---
 
-## Project Overview
+## 🚀 Try the Live Demo
 
-NEXUS is a real-time supply-chain resilience dashboard.  
-It lets operations teams instantly answer three questions:
+**Streamlit-in-Snowflake (no install required):**
 
-| Question | NEXUS Answer |
+> **[https://app.snowflake.com/ysyhgbx/cz11690/#/streamlit-apps/NEXUS_DB.STREAMLIT_APP.NEXUS_APP](https://app.snowflake.com/ysyhgbx/cz11690/#/streamlit-apps/NEXUS_DB.STREAMLIT_APP.NEXUS_APP)**
+
+> **GitHub:** [https://github.com/Harshahg20/nexus](https://github.com/Harshahg20/nexus)
+
+Click the link, pick a scenario, and ask NEXUS: *"What breaks if SUP-001 is unavailable for 14 days?"*
+
+---
+
+## What NEXUS Does
+
+- **Traces the full disruption chain** — one supplier failure propagates through parts, inventory, plants, products, orders, and customers in a single governed query, not a week of cross-team emails.
+- **Runs deterministic what-if scenarios** — supplier failure, port closure, and freight cost shock are modeled as pure SQL views; changing a parameter in Snowflake re-propagates the entire chain in seconds.
+- **Compares mitigation trade-offs side-by-side** — No Action vs. Expedite Shipment vs. Inventory Reallocation vs. Alternate Supplier, with modeled cost and protected revenue for each.
+- **Answers natural-language questions over governed data** — a Cortex Agent backed by a native Semantic View means every answer is traceable to a Snowflake-defined metric, not a language-model guess.
+
+---
+
+## Hackathon Submission
+
+| Field | Value |
 |---|---|
-| **See the chain** | Full cascade map: which suppliers → parts → plants → products → orders → customers are connected |
-| **Find the break** | Scenario engine: what breaks if a supplier fails, a port closes, or freight costs spike |
-| **Act before the impact** | Three modeled mitigation strategies with cost/recovery trade-offs |
+| **Hackathon** | Snowflake CoCo CLI Hackathon — GCC Edition 2026 |
+| **Theme** | Supply Chain Ontology and Governed Conversational Analytics |
+| **Account** | EB70963 (AWS ap-northeast-1) |
+| **Submission date** | October 2026 |
+| **Team** | Cortex Forge |
+| **Tagline** | *See the chain. Find the break. Act before the impact.* |
 
-All business logic lives in Snowflake.  The Streamlit front-end is a pure presentation layer.
+---
+
+## Snowflake Features Used
+
+Every feature below is actively used in NEXUS — not listed for padding.
+
+| Feature | How NEXUS uses it |
+|---|---|
+| **Cortex Agent** (`CREATE AGENT`) | `NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT` — orchestrates 4 tool UDFs + Cortex Analyst for natural-language Q&A |
+| **Native Semantic View** (`CREATE SEMANTIC VIEW`) | `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` — 11 logical tables, 13 relationships, 9 row-level facts, ~50 dimensions, 14 governed metrics, 10 verified queries, AI SQL generation rules |
+| **Cortex Analyst (text-to-SQL)** | Embedded as the `nexus_analyst` tool inside the Agent; resolves plain-English questions to governed SQL against the Semantic View |
+| **Snowpark Python** | Session management, key-pair RSA authentication, query execution, and data loading in `app/services/snowflake.py` |
+| **Streamlit-in-Snowflake (SiS)** | Full 7-section dashboard deployed as a native SiS app — shareable via URL, zero external hosting |
+| **SQL UDF (generic agent tool)** | 4 parameterless read-only UDFs in `NEXUS_DB.TOOLS`: `RUN_ACTIVE_SUPPLIER_FAILURE`, `COMPARE_ACTIVE_MITIGATIONS`, `RUN_ACTIVE_PORT_DISRUPTION`, `GET_ACTIVE_FREIGHT_SHOCK` |
+| **SQL Views (deterministic scenario engine)** | 15+ views across `NEXUS_DB.SCENARIOS`: supplier failure, port disruption, freight shock, order allocation, and mitigation comparison — pure SQL, no procedural code |
+| **Window functions (priority allocation)** | `SUM(...) OVER (PARTITION BY plant_id, part_id ORDER BY priority ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)` reproduces order-priority fulfillment logic inside the scenario engine |
+| **`OBJECT_CONSTRUCT` / `ARRAY_AGG`** | UDFs return structured JSON objects consumed by the Cortex Agent as tool responses |
+| **`CREATE OR REPLACE` idempotent DDL** | All 15 migration scripts are safe to re-run; `002_seed_data.sql` uses `TRUNCATE` + `INSERT` for clean re-execution |
+| **Snowflake Stages** | Private key and app assets referenced via Snowflake internal stages for SiS deployment |
+| **Query result cache** | TTL-based caching (`st.cache_data`) on all Snowpark queries to minimize warehouse compute |
+| **`GREATEST` / `NULLIF` in metrics** | `GREATEST(on_hand_units - safety_stock_units, 0)` and `on_hand_units / NULLIF(daily_consumption, 0)` baked into Semantic View FACTS and METRICS |
+| **AI SQL generation rules** | 15 explicit governance rules in `AI_SQL_GENERATION` block — prevent revenue double-counting, enforce `SUPPLIER_PARTS` over `SHIPMENTS` for qualification, and mandate modeled-vs-observed labeling |
+| **AI verified queries** | 10 `AI_VERIFIED_QUERIES` with `VERIFIED_AT` timestamps covering the full ontology traversal path |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Streamlit UI                         │
-│  kpi_cards  ·  scenario_panel  ·  dependency_graph          │
-│  impact_details  ·  mitigation_table  ·  chat  ·  evidence  │
-└───────────────────┬─────────────────────────────────────────┘
-                    │  Snowpark (key-pair auth)
-┌───────────────────▼─────────────────────────────────────────┐
-│                     Snowflake (NEXUS_DB)                     │
-│                                                             │
-│  RAW schema         — 9 observed entity tables              │
-│  SEMANTIC schema    — Cortex Semantic View (11 entities)     │
-│  SCENARIOS schema   — Deterministic scenario engine (views) │
-│  ANALYTICS schema   — Governed metric catalog + summaries   │
-└─────────────────────────────────────────────────────────────┘
-                    │
-         Cortex Agents (DATA_AGENT_RUN)
-         ↳ NEXUS_SUPPLY_CHAIN_AGENT
-           backed by NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN
+┌──────────────────────────────────────────────────────────────────┐
+│                   Streamlit-in-Snowflake (SiS)                   │
+│  KPI Cards · Scenario Banner · Cascade Chain · Impact Details    │
+│  Mitigation Table · NEXUS Chat · Evidence & Metric Catalog       │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │ Snowpark (RSA key-pair auth)
+┌────────────────────────────▼─────────────────────────────────────┐
+│                      NEXUS_DB (Snowflake)                        │
+│                                                                  │
+│  RAW schema            9 entity tables — suppliers, parts,       │
+│                        plants, inventory, ports, shipments,      │
+│                        products, orders, customers               │
+│                                                                  │
+│  SEMANTIC schema       NEXUS_SUPPLY_CHAIN (Semantic View)        │
+│                        11 tables · 13 relationships              │
+│                        14 metrics · 10 verified queries          │
+│                                                                  │
+│  SCENARIOS schema      Deterministic scenario engine (SQL views) │
+│                        Supplier failure · Port disruption        │
+│                        Freight shock · 4 mitigation strategies   │
+│                                                                  │
+│  TOOLS schema          4 read-only SQL UDFs (agent tools)        │
+│                                                                  │
+│  ANALYTICS schema      Governed metric catalog + risk summaries  │
+│                                                                  │
+│  PUBLIC schema         NEXUS_SUPPLY_CHAIN_AGENT (Cortex Agent)   │
+└──────────────────────────────────────────────────────────────────┘
+
+Data flow for a natural-language question:
+
+  User question
+       ↓
+  Cortex Agent (orchestration layer)
+       ├─ Baseline analytics → Cortex Analyst → Semantic View → RAW tables
+       └─ Scenario modeling  → SQL UDF → SCENARIOS views → OBJECT_CONSTRUCT response
+       ↓
+  Structured JSON answer
+       ↓
+  Streamlit chat component (renders evidence + citations)
 ```
 
-### Key Snowflake objects
+### Supply-Chain Ontology
 
-| Object | Purpose |
-|---|---|
-| `NEXUS_DB.RAW.*` | 9 observed entity tables (suppliers, parts, plants, inventory, ports, shipments, products, orders, customers) |
-| `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` | Cortex Semantic View — 11 logical tables, 14 metrics, 10 verified queries |
-| `NEXUS_DB.SCENARIOS.V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS` | Active scenario configuration |
-| `NEXUS_DB.SCENARIOS.V_SUPPLIER_FAILURE_IMPACT` | Shortage-allocation KPIs (1 aggregate row) |
-| `NEXUS_DB.SCENARIOS.V_SUPPLIER_FAILURE_CHAIN` | Full cascade chain (multi-row) |
-| `NEXUS_DB.SCENARIOS.V_MITIGATION_COMPARISON` | Three modeled mitigation strategies |
-| `NEXUS_DB.ANALYTICS.V_NEXUS_GOVERNED_METRIC_CATALOG` | Governed metric definitions |
-| `NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT` | Cortex Agent (natural-language Q&A) |
-
-### Metric scope note
-
-Two Snowflake views serve related but distinct counts:
-
-- **`V_SUPPLIER_FAILURE_IMPACT`** (KPI strip) — counts orders / customers / parts where the priority-allocation engine produced a confirmed supply deficit.
-- **`V_SUPPLIER_FAILURE_CHAIN`** (cascade drill-down) — traces every entity in the full disruption path, including those only partially impacted.
-
-These differences are intentional.  Both scopes are displayed with explanatory labels in the UI.
+```
+Supplier ──qualified──▶ Part ──BOM──▶ Product ──ordered──▶ Customer
+    │                    │                                      │
+    │              consumed by                             places order
+    │                    │
+    ▼                    ▼
+Shipment ──via──▶ Port   Plant ──holds──▶ Inventory
+    │                       │
+    └──────arrives at────────┘
+```
 
 ---
 
-## Prerequisites
+## Key Metrics (from deployed seed data)
+
+| Metric | Value |
+|---|---|
+| Suppliers | 10 (1 CRITICAL-tier, 3 HIGH, 4 MEDIUM, 2 LOW) |
+| Parts | 20 (5 CRITICAL, 4 HIGH, 6 MEDIUM, 5 LOW) |
+| Plants | 5 (Japan × 2, India, Singapore, Germany) |
+| Ports | 5 (Tokyo, Osaka, Singapore, Busan, Hamburg) |
+| Orders | 50+ open orders across all customer tiers |
+| Customers | 8 (PLATINUM, GOLD, and SILVER SLA tiers) |
+| Revenue at risk (SUP-001 failure, 14 days) | **$2.1M** |
+| Scenario types | 3 (supplier failure, port disruption, freight shock) |
+| Mitigation strategies modeled | 4 (No Action, Expedite, Reallocate, Alternate Supplier) |
+| Semantic View metrics | 14 governed aggregates |
+| Semantic View verified queries | 10 |
+| SQL migration files | 15 |
+| Regression / validation tests | 33 |
+
+---
+
+## Setup — 5 Steps
+
+### Prerequisites
 
 | Requirement | Notes |
 |---|---|
-| Python **3.11+** | 3.9 works but is EOL — Snowflake has deprecated that runtime. The app shows a warning banner on 3.9. Install 3.11+ and recreate the venv before production use (see below). |
-| Snowflake account | With Cortex features enabled (Agents, Semantic Views) |
-| Role `ACCOUNTADMIN` (or equivalent) | To query NEXUS_DB |
+| Python **3.11+** | 3.9 works but is EOL; 3.11+ strongly recommended |
+| Snowflake account | Cortex Agent + Semantic Views features enabled |
+| Role `ACCOUNTADMIN` (or equivalent) | Required to create database, schemas, agent |
 | Warehouse `COMPUTE_WH` | Or update `secrets.toml` to match yours |
-| `NEXUS_DB` deployed | Run all SQL scripts in `sql/` (see Deployment below) |
 
-### Python dependencies
-
-```
-snowflake-snowpark-python
-streamlit>=1.35
-pandas
-cryptography
-```
-
-Install with:
+### Step 1 — Clone
 
 ```bash
-cd app
-pip install -r requirements.txt
+git clone https://github.com/Harshahg20/nexus.git
+cd nexus
 ```
 
-### Upgrading to Python 3.11+
+### Step 2 — Generate RSA key pair (no password required)
 
 ```bash
-# macOS — install via Homebrew (recommended)
-brew install python@3.11
-
-# Then recreate the venv with the new interpreter
-make setup PYTHON=python3.11
-
-# Or manually:
-python3.11 -m venv app/venv
-app/venv/bin/pip install -r app/requirements.txt
-```
-
----
-
-## Key-Pair Authentication Setup
-
-NEXUS uses RSA key-pair authentication (no password, no browser pop-up — required for automated/server deployments).
-
-### 1. Generate the key pair
-
-```bash
-# Generate unencrypted private key (PKCS#8 PEM)
 openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -out rsa_key.pem
-
-# Extract the public key
 openssl rsa -in rsa_key.pem -pubout -out rsa_key.pub
 ```
 
-### 2. Register the public key in Snowflake
+Register the public key in Snowflake:
 
 ```sql
--- Run in Snowflake as ACCOUNTADMIN or SECURITYADMIN
 ALTER USER <your_user>
-  SET RSA_PUBLIC_KEY = '<paste contents of rsa_key.pub — header/footer lines excluded>';
+  SET RSA_PUBLIC_KEY = '<contents of rsa_key.pub — no header/footer lines>';
 ```
 
-### 3. Store the private key path in secrets.toml
+### Step 3 — Configure secrets
+
+```bash
+cp app/.streamlit/secrets.toml.example app/.streamlit/secrets.toml
+# Edit secrets.toml — set account, user, private_key_path
+```
 
 ```toml
-# app/.streamlit/secrets.toml  (NEVER commit this file)
 [connections.snowflake]
 account          = "your-account-identifier"
 user             = "your-snowflake-user"
@@ -144,89 +191,56 @@ warehouse        = "COMPUTE_WH"
 database         = "NEXUS_DB"
 ```
 
-> See `app/.streamlit/secrets.toml.example` for a ready-to-copy template.
+### Step 4 — Deploy SQL to Snowflake
 
----
+Run the following scripts **in order** in a Snowflake worksheet:
 
-## Local Streamlit Startup
-
-```bash
-# From the repo root
-cd app
-
-# (First time) create a virtual environment
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy and fill in credentials
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml
-# Edit secrets.toml — set account, user, private_key_path
-
-# Launch
-streamlit run streamlit_app.py
+```
+001_schema.sql            Database, schemas, 9 raw entity tables
+002_seed_data.sql         10 suppliers, 20 parts, 5 plants, 50+ orders (idempotent)
+003_product_bom.sql       Product-to-part bill of materials
+007_supplier_part_sources.sql  Supplier qualification (SUPPLIER_PARTS)
+004_semantic_views.sql    Analytics views: SUPPLY_CHAIN_RISK, ORDER_EXPOSURE, etc.
+006_scenario_engine.sql   Supplier failure engine (V_SUPPLIER_FAILURE_IMPACT, chain, allocation)
+008_mitigation_engine.sql 4 mitigation strategies (NO_ACTION, EXPEDITE, REALLOCATE, ALTERNATE)
+010_port_disruption_engine.sql  PORT-TYO disruption scenario
+011_freight_shock_engine.sql    30% freight shock scenario
+012_validation_views.sql  Evidence views + governed metric catalog
+009_scenario_tests.sql    Run to validate — all 9 invariant tests should PASS
+013_nexus_semantic_view.sql     Cortex Semantic View (NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN)
+014_nexus_agent.sql       Cortex Agent + 4 SQL tool UDFs (requires Cortex Agent preview)
+015_extended_tests.sql    Run to validate — 33 extended regression tests should PASS
+005_golden_queries.sql    Validation-only golden queries (SELECT statements)
 ```
 
-The app opens at `http://localhost:8501`.
+> All DDL uses `CREATE OR REPLACE` — scripts are idempotent and safe to re-run.
+
+### Step 5 — Launch the app
+
+```bash
+cd app
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+# Opens at http://localhost:8501
+```
+
+For Streamlit-in-Snowflake deployment, see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ---
 
 ## Demo Flow
 
-The recommended live demo path (all data is live from Snowflake):
-
-| Step | What to show | Journey |
+| Step | What you see | Time |
 |---|---|---|
-| 1 | Open the dashboard | KPI strip loads — 6 live metrics |
-| 2 | Read the scenario banner | SUP-001 · 100% capacity · 14 days |
-| 3 | Scroll to **Failure Propagation** | Animated cascade: supplier → parts → plants → products → orders → customers |
-| 4 | Open **Parts in Cascade** expander | PART-104 in the chain |
-| 5 | Open **Customers in Cascade** expander | Customers exposed to PART-104 |
-| 6 | Scroll to **Compare Mitigations** | Side-by-side: No Action vs Expedite vs Alternate Supplier |
-| 7 | Ask **NEXUS** (chat): `What happens if PORT-TYO is disrupted?` | Cortex Agent answers using the semantic view |
-| 8 | Ask: `Which customers are exposed to PART-104?` | Natural-language query over governed data |
-| 9 | Scroll to **Evidence & Modeling** | Expand "Governed Metric Definitions" — shows full metric catalog |
-| 10 | Refresh the page | All data reloads from Snowflake (TTL cache = 5 min) |
+| 1 · KPI Strip | 6 live metrics: Revenue Exposure · Orders at Risk · Parts with Shortage · Customers Exposed · Affected Plants · Units at Risk | 0:30 |
+| 2 · Scenario Banner | SUP-001 (Apex Components, Japan, CRITICAL) · 100% capacity · 14 days | 0:15 |
+| 3 · Cascade Chain | Animated propagation: SUP-001 → PART-104/111/102 → PLT-001/002 → PROD-001/005 → ORD-002/004/011… → CUST-001/003 | 1:00 |
+| 4 · Mitigation Table | Side-by-side: No Action $2.1M exposed · Expedite · Reallocate Inventory (lowest cost) · Alternate Supplier (highest recovery) | 0:45 |
+| 5 · NEXUS Chat | Ask: *"What breaks if SUP-001 is unavailable for 14 days?"* — Cortex Agent answers with evidence | 1:30 |
+| 6 · Evidence Panel | Governed metric definitions, source tables, verified query SQL | 0:30 |
 
----
-
-## Known MVP Limitations
-
-| Area | Limitation | Mitigation |
-|---|---|---|
-| Scenario parameters | Hard-coded in `V_ACTIVE_SUPPLIER_FAILURE_PARAMETERS`. UI cannot change the active scenario — editing parameters requires updating the Snowflake view. | The UI detects unsupported parameters and shows a clear guidance banner instead of silently returning blank data. |
-| Scenario coverage | Only the seeded scenario (SUP-001 · 100% · 14 days) is supported by the supplier-failure engine. The UI shows a warning if different parameters are detected. | Port disruption (PORT-TYO) and freight shock are available via the Cortex Agent chat. Four mitigation strategies are modeled: NO_ACTION, EXPEDITE_SHIPMENT, INVENTORY_REALLOCATION, ALTERNATE_SUPPLIER. |
-| Cortex Agent timeout | Long or complex agent queries default to a 60 s wall-clock timeout. | Timeout raises a user-friendly message with a retry suggestion. Adjust `AGENT_TIMEOUT` in `services/agent.py` if your warehouse needs more warm-up time. |
-| Multi-turn threads | Thread IDs are not yet persisted between sessions. Each chat session is independent. | Acceptable for a demo; add `st.session_state` thread management for production. |
-| Auth method | Key-pair only. `externalbrowser` (OAuth) is not currently configured. | See secrets.toml.example for key-pair setup. |
-| Data refresh | Snowflake query cache TTL is 5 minutes. Failed queries are never cached — they retry on every render. | Set `ttl=` in `_query_df_cached` to control freshness. |
-| Scale | Demo dataset: ~10 suppliers, 20 parts, 5 plants, 6 products, 20 orders, 8 customers. Not tested at production scale. | — |
-
----
-
-## Security Guidance
-
-- **Never commit `secrets.toml`** — it is listed in `.gitignore`. The example file (`secrets.toml.example`) contains only placeholders.
-- **Keep the RSA private key outside the repository** — use an absolute path in `secrets.toml`.
-- **Use the principle of least privilege** — consider creating a dedicated Snowflake role for the app rather than using `ACCOUNTADMIN`.
-- **Rotate keys periodically** — `ALTER USER <user> SET RSA_PUBLIC_KEY = '<new_key>'`.
-- **No raw tracebacks are shown to end users** — all service errors are caught and converted to friendly messages. Internal details are logged to the Streamlit server console only.
-- **Audit queries** — all SQL executed by the app is visible in Snowflake's Query History under the authenticated user.
-
----
-
-## Running the Tests
-
-The test suite covers pure utility functions and does **not** require a live Snowflake connection.
-
-```bash
-cd app
-python -m pytest ../tests/ -v
-```
-
-Expected output: all tests pass with no Snowflake credentials required.
+See [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) for the full rehearsable 5-minute script.
 
 ---
 
@@ -235,57 +249,74 @@ Expected output: all tests pass with no Snowflake credentials required.
 ```
 nexus/
 ├── README.md
+├── SUBMISSION.md                     ← Hackathon submission brief
 ├── app/
-│   ├── streamlit_app.py          # Entry point
+│   ├── streamlit_app.py              Entry point (7 UI sections)
 │   ├── requirements.txt
 │   ├── .streamlit/
-│   │   ├── config.toml           # Streamlit theme config
-│   │   ├── secrets.toml          # NOT committed — your credentials
-│   │   └── secrets.toml.example  # Template (safe to commit)
-│   ├── components/               # UI sections (one file per section)
-│   │   ├── kpi_cards.py
-│   │   ├── scenario_panel.py
-│   │   ├── dependency_graph.py
-│   │   ├── impact_details.py
-│   │   ├── mitigation_table.py
-│   │   ├── chat.py
-│   │   └── evidence.py
-│   ├── services/                 # Data access layer
-│   │   ├── snowflake.py          # Snowpark session + loaders
-│   │   └── agent.py              # Cortex Agent wrapper
+│   │   ├── config.toml               Theme + Snowflake connection config
+│   │   └── secrets.toml.example      Credential template (safe to commit)
+│   ├── components/                   One file per dashboard section
+│   │   ├── kpi_cards.py              6-metric KPI strip
+│   │   ├── scenario_panel.py         Active scenario banner
+│   │   ├── dependency_graph.py       Animated cascade chain
+│   │   ├── impact_details.py         Expandable parts / plants / orders / customers
+│   │   ├── mitigation_table.py       4-strategy comparison panel
+│   │   ├── chat.py                   Cortex Agent chat interface
+│   │   └── evidence.py               Governed metric catalog + source evidence
+│   ├── services/
+│   │   ├── snowflake.py              Snowpark session + query loaders
+│   │   └── agent.py                  Cortex Agent API wrapper (60 s timeout)
 │   └── ui/
-│       ├── theme.py              # Design tokens, global CSS
-│       └── html.py               # HTML helpers
-├── agent/                        # Agent documentation
-│   ├── NEXUS_AGENT_INSTRUCTIONS.md
-│   ├── NEXUS_TOOL_CONTRACT.md
+│       ├── theme.py                  Design tokens, global CSS
+│       └── html.py                   HTML render helpers
+├── agent/
+│   ├── NEXUS_AGENT_INSTRUCTIONS.md   Agent system prompt
+│   ├── NEXUS_TOOL_CONTRACT.md        Tool routing + governance rules
 │   └── README.md
+├── snowflake/                        15 ordered SQL migration files
+│   ├── 001_schema.sql … 015_extended_tests.sql
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── DEMO_SCRIPT.md
+│   ├── PRD.md
+│   ├── SCENARIOS.md
+│   ├── ONTOLOGY.md
+│   ├── METRICS.md
+│   ├── DEPLOYMENT.md
+│   └── EVALUATION.md
 └── tests/
-    └── test_utils.py             # Unit tests (no Snowflake required)
+    └── test_utils.py                 Unit tests (no Snowflake connection required)
 ```
 
 ---
 
-## Snowflake Deployment
+## Known MVP Limitations
 
-SQL scripts are in the `snowflake/` directory. Run them in this exact order in a Snowflake worksheet:
+| Area | Limitation |
+|---|---|
+| Scenario parameters | Hard-coded in `V_ACTIVE_*_PARAMETERS` views. Changing them requires editing the Snowflake view directly — UI does not expose parameter controls. |
+| Cortex Agent timeout | Defaults to 60 s wall-clock. Adjust `AGENT_TIMEOUT` in `services/agent.py` for cold-start warehouses. |
+| Multi-turn threads | Thread IDs are not persisted across browser sessions. Each chat session starts fresh. |
+| Scale | Demo dataset: 10 suppliers, 20 parts, 5 plants, 50+ orders. Not load-tested at production scale. |
 
+---
+
+## Security
+
+- `secrets.toml` is `.gitignore`d — never committed. Use `secrets.toml.example` as a template.
+- RSA private key must be stored outside the repository (absolute path in `secrets.toml`).
+- All SQL executed by the app is visible in Snowflake Query History under the authenticated user.
+- No raw tracebacks are shown to end users — all service errors are caught and converted to friendly messages.
+
+---
+
+## Running the Tests
+
+```bash
+cd app
+python -m pytest ../tests/ -v
+# No live Snowflake connection required
 ```
-001_schema.sql               — Database, schemas, raw entity tables
-002_seed_data.sql            — Suppliers, parts, plants, inventory, ports, shipments, orders, customers
-003_product_bom.sql          — Product-to-part bill of materials (PRODUCT_PARTS)
-007_supplier_part_sources.sql — Supplier-part qualification (SUPPLIER_PARTS + analytics views)
-004_semantic_views.sql       — Analytical views: SUPPLY_CHAIN_RISK, SUPPLIER_PART_DEPENDENCY, etc.
-005_golden_queries.sql       — Demo golden queries (run to validate; no DDL)
-006_scenario_engine.sql      — Supplier failure scenario engine (V_SUPPLIER_FAILURE_IMPACT, etc.)
-008_mitigation_engine.sql    — Mitigation comparison engine (NO_ACTION, ALTERNATE_SUPPLIER,
-                               EXPEDITE_SHIPMENT, INVENTORY_REALLOCATION)
-010_port_disruption_engine.sql — PORT-TYO port disruption scenario
-011_freight_shock_engine.sql — 30% freight shock scenario
-012_validation_views.sql     — Validation checks + evidence views + metric catalog
-009_scenario_tests.sql       — Scenario regression invariant tests (run to verify)
-013_nexus_semantic_view.sql  — Cortex Semantic View (NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN)
-014_nexus_agent.sql          — Cortex Agent + 4 SQL tool UDFs (requires Cortex Agent preview)
-```
 
-All DDL scripts use `CREATE OR REPLACE` — they are idempotent and safe to re-run. `002_seed_data.sql` uses `TRUNCATE` before every `INSERT` to ensure clean re-runs. `005_golden_queries.sql` and `009_scenario_tests.sql` are validation-only (SELECT statements).
+For scenario regression tests, run `snowflake/009_scenario_tests.sql` and `snowflake/015_extended_tests.sql` in a deployed NEXUS_DB environment. All 33 tests should return `result = 'PASS'`.
