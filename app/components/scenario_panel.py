@@ -1,7 +1,28 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from services.snowflake import load_supplier_failure_parameters, is_unsupported_scenario
+from services.snowflake import (
+    load_supplier_failure_parameters,
+    load_supplier_failure_impact,
+    is_unsupported_scenario,
+)
 from ui.theme import C, FONT
+
+
+# Plain-English descriptions for each scenario type
+_SCENARIO_DESCRIPTIONS = {
+    "SUPPLIER_FAILURE": (
+        "A key supplier loses production capacity, creating a parts shortage that cascades "
+        "through your manufacturing network — from plants, to products, to customer orders."
+    ),
+    "PORT_DISRUPTION": (
+        "A major port closure blocks inbound shipments, delaying parts delivery across the "
+        "manufacturing network and exposing open orders to fulfillment risk."
+    ),
+    "FREIGHT_SHOCK": (
+        "A sudden spike in freight costs raises landed cost for all inbound parts, "
+        "compressing margins and potentially making some orders economically unviable."
+    ),
+}
 
 
 def render():
@@ -118,3 +139,108 @@ body {{ background:transparent; padding:0; }}
         "All downstream impact figures are computed deterministically by the Snowflake "
         "scenario engine using these parameters."
     )
+
+    # ── Before / After Comparison ─────────────────────────────────────────────
+    _impact = load_supplier_failure_impact()
+    _rev    = _impact.get("REVENUE_EXPOSURE", 0) or 0
+    _ords   = _impact.get("ORDERS_AT_RISK", 0) or 0
+    _custs  = _impact.get("CUSTOMERS_EXPOSED", 0) or 0
+    _parts  = _impact.get("AFFECTED_PARTS", 0) or 0
+    _rev_fmt = f"${_rev/1_000_000:.2f}M" if _rev else "—"
+
+    cmp_html = f"""
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;
+                margin:10px 0 4px;font-family:{FONT};">
+      <!-- BEFORE column -->
+      <div style="background:#F8FAFC;border:1px solid #E2E8F0;
+                  border-radius:12px;padding:14px 18px;">
+        <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.12em;color:#94A3B8;margin-bottom:10px;">
+          &#9664; Baseline &mdash; Pre-Disruption
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Revenue at Risk</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#16A34A;">$0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Orders Disrupted</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#16A34A;">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Customers Affected</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#16A34A;">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Parts With Shortage</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#16A34A;">0</span>
+          </div>
+        </div>
+      </div>
+      <!-- AFTER column -->
+      <div style="background:rgba(220,38,38,0.03);
+                  border:1px solid rgba(220,38,38,0.18);
+                  border-radius:12px;padding:14px 18px;">
+        <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.12em;color:{color};margin-bottom:10px;">
+          &#9654; With Disruption &mdash; Active Scenario
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Revenue at Risk</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#DC2626;">{_rev_fmt}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Orders Disrupted</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#EA580C;">{_ords}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Customers Affected</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#EA580C;">{_custs}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;color:#64748B;">Parts With Shortage</span>
+            <span style="font-size:0.78rem;font-weight:700;color:#EA580C;">{_parts}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+    components.html(
+        f"""<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>
+* {{ box-sizing:border-box; margin:0; padding:0; }}
+@media (max-width:480px) {{
+  div[style*="grid-template-columns:1fr 1fr"] {{ grid-template-columns:1fr !important; }}
+}}
+</style>
+</head>
+<body style="background:transparent;padding:0;">{cmp_html}</body></html>""",
+        height=172,
+    )
+
+    # ── Plain-English explanation ─────────────────────────────────────────────
+    with st.expander("ℹ️ What does this scenario mean? (plain-English explanation)", expanded=False):
+        loss_desc = "total loss of supply" if capacity >= 100 else f"{capacity:.0f}% reduction in supply output"
+        st.markdown(
+            f"""**Supplier {supplier}** is a critical node in your manufacturing supply network.
+This scenario models a **{loss_desc}** lasting **{duration} days**, starting **{start}**.
+
+**What happens in the supply chain:**
+1. **Parts shortage** — {supplier} cannot fulfill purchase orders for the parts it supplies
+2. **Plant impact** — Manufacturing sites that depend on those parts cannot run full production
+3. **Product shortage** — Finished goods that use the affected parts cannot be built on schedule
+4. **Order disruption** — Customer orders for those products face partial or full fulfillment failures
+5. **Revenue exposure** — Unfulfilled orders translate directly to **{_rev_fmt}** of at-risk revenue
+
+**Why NEXUS models it this way:**
+The Snowflake Scenario Engine traces every edge of the supply graph — from {supplier}'s qualified parts,
+through each plant's BOM, to every customer order — and runs a deterministic priority-based allocation
+to calculate *exactly* which orders are short, by how much, and which customers are affected.
+
+**For non-experts:** Think of this as a domino effect. {supplier} is the first domino.
+NEXUS shows you every domino that falls as a result — before it happens in real life.
+            """
+        )

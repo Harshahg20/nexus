@@ -50,4 +50,5 @@ dist/
 
 # Temporary files
 *.tmp
-*.tempnohup.out
+nohup.out
+*.nohup.out

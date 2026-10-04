@@ -31,7 +31,8 @@ _ACCENTS = [
 _VAL_COLORS = ["#DC2626", "#0F172A", "#0F172A", "#0F172A", "#0F172A", "#0F172A"]
 
 
-def _card_html(label: str, value: str, sub: str, accent: str, val_color: str) -> str:
+def _card_html(label: str, value: str, sub: str, accent: str, val_color: str,
+               val_font_size: str = "clamp(1.25rem,4vw,1.85rem)") -> str:
     return f"""<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
@@ -53,7 +54,7 @@ body {{ background:transparent; font-family:{FONT}; padding:2px 0; }}
 .lbl  {{ font-size:.6rem; font-weight:700; text-transform:uppercase;
          letter-spacing:.12em; color:#94A3B8; margin-bottom:8px;
          overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
-.val  {{ font-size:clamp(1.25rem,4vw,1.85rem); font-weight:800;
+.val  {{ font-size:{val_font_size}; font-weight:800;
          color:{val_color}; letter-spacing:-.03em; line-height:1.1;
          margin-bottom:5px; }}
 .sub  {{ font-size:.68rem; color:#CBD5E1;
@@ -82,6 +83,23 @@ def render():
                 "⚠ **Unsupported scenario — KPI data will be empty.**\n\n" + guidance
             )
 
+        # ── Scenario active indicator ──────────────────────────────────────
+        supplier = params.get("FAILED_SUPPLIER_ID", "—")
+        capacity = float(params.get("CAPACITY_REDUCTION_PCT", 0) or 0)
+        duration = int(params.get("DURATION_DAYS", 0) or 0)
+        st.markdown(
+            f"<div style='display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;"
+            f"padding:6px 16px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.20);"
+            f"border-radius:100px;font-family:{FONT};'>"
+            f"<span style='width:7px;height:7px;border-radius:50%;background:#DC2626;"
+            f"display:inline-block;flex-shrink:0;'></span>"
+            f"<span style='font-size:0.65rem;font-weight:700;text-transform:uppercase;"
+            f"letter-spacing:0.12em;color:#DC2626;'>"
+            f"SCENARIO ACTIVE &mdash; {supplier} &middot; {capacity:.0f}% capacity loss"
+            f" &middot; {duration}-day window</span></div>",
+            unsafe_allow_html=True,
+        )
+
     impact = load_supplier_failure_impact()
     if not impact:
         st.warning(
@@ -98,29 +116,37 @@ def render():
     plants    = impact.get("AFFECTED_PLANTS", 0) or 0
     units     = impact.get("UNITS_AT_RISK", 0) or 0
 
+    # Revenue KPI is bright red if > $1M to signal severity
+    rev_val_color = "#DC2626" if revenue > 1_000_000 else "#EA580C"
+
     # Sub-labels: clearly state "scenario-wide" scope so users understand
     # these totals include all shortage causes, not only SUP-001-caused shortages.
-    # The cascade/impact sections below show SUP-001-caused impact specifically.
     metrics = [
-        ("Revenue Exposure",  f"${revenue/1_000_000:.2f}M", "Scenario-wide shortage exposure"),
-        ("Orders at Risk",    str(orders),                   "Orders with shortage — all causes"),
-        ("Parts With Shortage",str(parts),                   "Parts with unmet demand — all causes"),
-        ("Customers Exposed", str(customers),                "Buyers with any shortage order"),
-        ("Affected Plants",   str(plants),                   "Plants with at-risk orders"),
-        ("Units at Risk",     f"{units:,.0f}",               "Unmet units across all orders"),
+        ("Revenue Exposure",   f"${revenue/1_000_000:.2f}M", "Scenario-wide shortage exposure"),
+        ("Orders at Risk",     str(orders),                   "Orders with shortage — all causes"),
+        ("Parts With Shortage",str(parts),                    "Parts with unmet demand — all causes"),
+        ("Customers Exposed",  str(customers),                "Buyers with any shortage order"),
+        ("Affected Plants",    str(plants),                   "Plants with at-risk orders"),
+        ("Units at Risk",      f"{units:,.0f}",               "Unmet units across all orders"),
     ]
+    accents    = _ACCENTS
+    val_colors = [rev_val_color] + _VAL_COLORS[1:]
 
-    # Two rows of 3 cards
-    row1, row2 = st.columns(3), st.columns(3)
-    all_cols = list(row1) + list(row2)
+    # ── Layout: revenue card is wide (2/4), other two share row 1 ─────────
+    col_rev, col_orders, col_parts = st.columns([2, 1, 1])
+    col_cust, col_plants, col_units = st.columns([1, 1, 1])
+    all_cols = [col_rev, col_orders, col_parts, col_cust, col_plants, col_units]
 
-    for col, (label, value, sub), accent, val_color in zip(
-        all_cols, metrics, _ACCENTS, _VAL_COLORS
+    for i, (col, (label, value, sub), accent, val_color) in enumerate(
+        zip(all_cols, metrics, accents, val_colors)
     ):
+        is_revenue = (i == 0)
+        h = 150 if is_revenue else 118
+        fsize = "clamp(1.7rem,5vw,2.5rem)" if is_revenue else "clamp(1.25rem,4vw,1.85rem)"
         with col:
             components.html(
-                _card_html(label, value, sub, accent, val_color),
-                height=118,
+                _card_html(label, value, sub, accent, val_color, val_font_size=fsize),
+                height=h,
             )
 
     # Provenance caption: explain the scope difference up-front

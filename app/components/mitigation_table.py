@@ -64,7 +64,7 @@ def render():
         st.info(
             "No mitigation comparison data is available. "
             "Check the Snowflake connection or verify that "
-            "`NEXUS_DB.SCENARIOS.V_MITIGATION_COMPARISON` returns 3 rows."
+            "`NEXUS_DB.SCENARIOS.V_MITIGATION_COMPARISON` returns 4 rows."
         )
         return
 
