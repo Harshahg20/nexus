@@ -80,17 +80,32 @@ with st.sidebar:
 
     # ── MODE TOGGLE — always at top, always visible ───────────────────────
     if not _chat_mode:
+        # Teal label makes the button stand out without relying on CSS key targeting
+        st.markdown(
+            f"<div style='background:{C.TEAL};color:#fff;font-size:0.7rem;"
+            f"font-weight:700;text-transform:uppercase;letter-spacing:0.1em;"
+            f"padding:6px 12px;border-radius:10px 10px 0 0;margin-bottom:-2px;"
+            f"text-align:center;font-family:{_FONT};'>💬 Ask NEXUS AI</div>",
+            unsafe_allow_html=True,
+        )
         if st.button(
-            "💬  Ask NEXUS AI",
+            "Open AI Chat →",
             key="open_chat_mode",
             use_container_width=True,
-            help="Open AI chat panel",
+            help="Switch sidebar to AI chat mode",
         ):
             st.session_state.sidebar_mode = "chat"
             _st_rerun()
     else:
+        st.markdown(
+            f"<div style='background:{C.RED};color:#fff;font-size:0.7rem;"
+            f"font-weight:700;text-transform:uppercase;letter-spacing:0.1em;"
+            f"padding:6px 12px;border-radius:10px 10px 0 0;margin-bottom:-2px;"
+            f"text-align:center;font-family:{_FONT};'>✕ Chat Mode Active</div>",
+            unsafe_allow_html=True,
+        )
         if st.button(
-            "✕  Close Chat · Back to Controls",
+            "← Back to Controls",
             key="close_chat_mode",
             use_container_width=True,
         ):

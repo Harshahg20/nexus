@@ -102,18 +102,15 @@ html body [data-testid="stSidebarUserContent"] {{
     color-scheme: light !important;
 }}
 
-/* Text: labels, paragraphs, spans, markdown — explicit, NOT wildcard */
-html body [data-testid="stSidebar"] label,
-html body [data-testid="stSidebar"] p,
-html body [data-testid="stSidebar"] span,
-html body [data-testid="stSidebar"] small,
-html body [data-testid="stSidebar"] div[class*="stMarkdown"],
-html body [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-html body [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] div {{
+/* Text: wildcard catches radio spans, slider labels, markdown divs etc.
+   Buttons override this below with an explicit background + same dark text color. */
+html body section[data-testid="stSidebar"] *:not(svg):not(path):not(circle):not(rect):not(line):not(polyline) {{
     color: {C.T2} !important;
 }}
 
-/* ALL sidebar buttons — white background, dark text (maximum specificity) */
+/* ALL sidebar buttons — white bg + dark text.
+   This comes AFTER the wildcard so it wins the background battle.
+   Text color stays dark (#0F172A) matching the wildcard. */
 html body section[data-testid="stSidebar"] button,
 html body section[data-testid="stSidebar"] .stButton > button,
 html body section[data-testid="stSidebar"] [data-testid="stButton"] > button {{
@@ -124,27 +121,14 @@ html body section[data-testid="stSidebar"] [data-testid="stButton"] > button {{
     font-size: 0.82rem !important;
     font-weight: 600 !important;
     box-shadow: none !important;
+    /* Reset any transform from global button hover */
+    transform: none !important;
 }}
 html body section[data-testid="stSidebar"] button:hover,
 html body section[data-testid="stSidebar"] .stButton > button:hover {{
     background-color: {C.TEAL_DIM} !important;
     color: {C.TEAL_TEXT} !important;
     border-color: {C.TEAL_BORDER} !important;
-}}
-
-/* "💬 Ask NEXUS AI" — first button in sidebar = teal CTA */
-html body section[data-testid="stSidebar"] [data-testid="stButton"]:first-of-type button,
-html body section[data-testid="stSidebar"] .stButton:first-of-type > button {{
-    background-color: {C.TEAL} !important;
-    color: #ffffff !important;
-    border: none !important;
-    font-weight: 700 !important;
-    box-shadow: 0 2px 10px rgba(0,196,154,0.4) !important;
-}}
-html body section[data-testid="stSidebar"] [data-testid="stButton"]:first-of-type button:hover,
-html body section[data-testid="stSidebar"] .stButton:first-of-type > button:hover {{
-    background-color: #00a880 !important;
-    color: #ffffff !important;
 }}
 
 /* Selectbox — BaseWeb select */
