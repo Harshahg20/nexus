@@ -20,10 +20,10 @@ from __future__ import annotations
 import json
 import concurrent.futures
 import streamlit as st
-from services.snowflake import get_session, NexusConnectionError, NexusConfigError
+from services.snowflake import get_session, NexusConnectionError, NexusConfigError, _is_auth_expiry, _reset_session
 
 AGENT_FQN    = "NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT"
-AGENT_TIMEOUT = 60          # seconds — tune up if your warehouse is cold-starting
+AGENT_TIMEOUT = 180         # seconds — complex multi-hop queries can take 2-3 min
 _EXECUTOR    = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="nexus-agent")
 
 
@@ -50,8 +50,7 @@ def _make_sql(body_json: str) -> str:
     return (
         f"SELECT SNOWFLAKE.CORTEX.DATA_AGENT_RUN("
         f"  '{AGENT_FQN}',"
-        f"  '{body_json}',"
-        f"  TRUE"
+        f"  '{body_json}'"
         f") AS resp"
     )
 
@@ -68,7 +67,6 @@ def _get_session_safe():
             "Check your credentials and try again."
         ) from exc
 
-
 # ── Blocking invocation (with hard timeout) ───────────────────────────────────
 
 def _run_blocking(question: str, thread_id: int | None) -> dict:
@@ -79,10 +77,24 @@ def _run_blocking(question: str, thread_id: int | None) -> dict:
     try:
         rows = session.sql(sql).collect()
     except Exception as exc:
-        raise NexusAgentError(
-            "The NEXUS agent query failed. "
-            "Check your Snowflake connection and ensure the Cortex Agent is deployed."
-        ) from exc
+        import traceback as _tb
+        _tb.print_exc()   # log the real error to the server console
+        # If token expired, reset and retry once with a fresh session
+        if _is_auth_expiry(exc):
+            _reset_session()
+            session = _get_session_safe()
+            try:
+                rows = session.sql(sql).collect()
+            except Exception as exc2:
+                raise NexusAgentError(
+                    "The NEXUS agent query failed after reconnecting. "
+                    "Check your Snowflake connection and ensure the Cortex Agent is deployed."
+                ) from exc2
+        else:
+            raise NexusAgentError(
+                "The NEXUS agent query failed. "
+                "Check your Snowflake connection and ensure the Cortex Agent is deployed."
+            ) from exc
 
     if not rows:
         raise NexusAgentError(
@@ -159,8 +171,9 @@ def stream_agent(
     Each yielded value is a non-empty string chunk.  If no streaming data
     arrives within *timeout* seconds, NexusAgentError is raised.
 
-    Falls back to the blocking path if streaming is not supported by the
-    installed Snowflake connector version.
+    Falls back to the blocking path (invoke_agent) on ANY exception from the
+    streaming cursor — this ensures transient errors (auth token expiry,
+    network blip, SQL compilation variance) do not silently kill the response.
     """
     if not question or not question.strip():
         raise NexusAgentError("Question must not be empty.")
@@ -169,14 +182,14 @@ def stream_agent(
     sql       = _make_sql(body_json)
     session   = _get_session_safe()
 
+    _streaming_succeeded = False
     try:
         # Use the underlying connector cursor for lazy row-by-row iteration
-        # (avoids collecting all rows into memory before yielding the first token).
         raw_conn = session.connection
         cursor   = raw_conn.cursor()
         try:
             cursor.execute(sql)
-            deadline = __import__("time").time() + timeout
+            deadline    = __import__("time").time() + timeout
             yielded_any = False
 
             for row in cursor:
@@ -192,6 +205,7 @@ def stream_agent(
                 text = extract_text(chunk)
                 if text:
                     yielded_any = True
+                    _streaming_succeeded = True
                     yield text
 
             if not yielded_any:
@@ -199,24 +213,33 @@ def stream_agent(
                     "The agent stream produced no text. "
                     "Try again or rephrase your question."
                 )
+            return   # streaming completed successfully
+
         finally:
             cursor.close()
 
     except NexusAgentError:
-        raise
-    except AttributeError:
-        # Older connector without .connection attribute — fall back to blocking
-        result = invoke_agent(question, thread_id, timeout=timeout)
-        text   = extract_text(result)
-        if text:
-            yield text
-        else:
-            raise NexusAgentError("The agent returned no readable text.")
-    except Exception as exc:
-        raise NexusAgentError(
-            "The streaming agent connection failed. "
-            "Check your Snowflake connection and try again."
-        ) from exc
+        if _streaming_succeeded:
+            raise  # partial stream already sent — surface the error
+        # No output yet — fall through to blocking fallback below
+        import traceback as _tb
+        _tb.print_exc()
+
+    except Exception:
+        import traceback as _tb
+        _tb.print_exc()   # always log the real error to the server console
+
+    # ── Fallback: blocking invoke_agent ──────────────────────────────────────
+    # Reached when streaming fails before any tokens were yielded.
+    # Handles: auth token expiry, SQL errors, connector compatibility issues.
+    # _reset_session() ensures a fresh JWT token is used for the retry.
+    _reset_session()
+    result = invoke_agent(question, thread_id, timeout=timeout)
+    text   = extract_text(result)
+    if text:
+        yield text
+    else:
+        raise NexusAgentError("The agent returned no readable text.")
 
 
 # ── Response parsing helpers ──────────────────────────────────────────────────

@@ -65,9 +65,9 @@ class NexusConnectionError(RuntimeError):
 # ── Session ───────────────────────────────────────────────────────────────────
 
 @_sis_cache_resource
-def get_session():
+def _build_session():
     """
-    Build and return a Snowpark session.
+    Build and return a fresh Snowpark session.  Called only by get_session().
 
     Detection order:
     1. Streamlit-in-Snowflake (SiS) — use the active session provided by the
@@ -140,6 +140,49 @@ def get_session():
         ) from exc
 
 
+_AUTH_ERROR_CODES = ("390114", "390195", "390100")  # token expired / invalid token
+
+
+def _is_auth_expiry(exc: Exception) -> bool:
+    """Return True if *exc* is a Snowflake authentication token expiry error."""
+    msg = str(exc)
+    return any(code in msg for code in _AUTH_ERROR_CODES) or \
+           "Authentication token has expired" in msg or \
+           "JWT token is invalid" in msg
+
+
+def _reset_session() -> None:
+    """
+    Evict the cached session so the next call to get_session() creates a
+    fresh one with a new JWT token.  Safe to call from any thread.
+    """
+    if hasattr(st, "cache_resource"):
+        try:
+            st.cache_resource.clear()
+        except Exception:
+            pass
+    # Also bust data cache so stale query results are discarded.
+    if hasattr(st, "cache_data"):
+        try:
+            st.cache_data.clear()
+        except Exception:
+            pass
+
+
+def get_session():
+    """
+    Return the cached Snowpark session.
+
+    The session is built once by _build_session() (decorated with
+    @st.cache_resource) and reused for the lifetime of the Streamlit process.
+
+    If the JWT authentication token has expired (error 390114), callers
+    should call _reset_session() to evict the cache, then call get_session()
+    again — the decorator will rebuild a fresh session automatically.
+    """
+    return _build_session()
+
+
 # ── Low-level query helpers ───────────────────────────────────────────────────
 #
 # Design: two-layer approach so that *errors are never silently cached*.
@@ -171,7 +214,8 @@ def query_df(sql: str) -> pd.DataFrame:
     Public query helper.  Returns empty DataFrame on any failure and surfaces
     a user-readable error banner via st.error / st.warning.
 
-    Never displays a raw Python traceback.
+    Automatically reconnects once if the JWT authentication token has expired
+    (error 390114).  Never displays a raw Python traceback.
     """
     try:
         return _query_df_cached(sql)
@@ -179,6 +223,16 @@ def query_df(sql: str) -> pd.DataFrame:
         st.error(f"⚠ **Data source unavailable.** {exc}")
         return pd.DataFrame()
     except Exception as exc:
+        # ── Auto-reconnect on token expiry ────────────────────────────────
+        if _is_auth_expiry(exc):
+            _reset_session()
+            try:
+                return _query_df_cached(sql)
+            except (NexusConfigError, NexusConnectionError) as exc2:
+                st.error(f"⚠ **Data source unavailable after reconnect.** {exc2}")
+                return pd.DataFrame()
+            except Exception:
+                pass  # fall through to generic warning below
         # Strip internal details — log the full message to server console only
         import traceback
         traceback.print_exc()   # visible in `streamlit run` terminal, not in UI

@@ -1,0 +1,257 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "NEXUS — Supply Chain Resilience Intelligence",
+    "output": "nexus-architecture.html",
+    "quality_profile": "showcase",
+    "visual_preset": "signal-flow",
+    "animation": "trace"
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Supply Chain Teams",
+      "sublabel": "Ops · Risk · Procurement",
+      "pos": [40, 320],
+      "size": [140, 64],
+      "tag": "Target Persona"
+    },
+    {
+      "id": "coco_cli",
+      "type": "external",
+      "label": "Snowflake CoCo CLI",
+      "sublabel": "Terminal AI coding agent",
+      "pos": [40, 120],
+      "size": [140, 64],
+      "tag": "17 SQL files generated"
+    },
+    {
+      "id": "sis",
+      "type": "frontend",
+      "label": "Streamlit-in-Snowflake",
+      "sublabel": "7-section dashboard · Ask NEXUS",
+      "pos": [300, 300],
+      "size": [155, 70],
+      "tag": "SiS — zero infra"
+    },
+    {
+      "id": "snowpark",
+      "type": "backend",
+      "label": "Snowpark Python",
+      "sublabel": "RSA key-pair auth · TTL cache",
+      "pos": [570, 300],
+      "size": [155, 70]
+    },
+    {
+      "id": "cortex_agent",
+      "type": "backend",
+      "label": "Cortex Agent",
+      "sublabel": "NEXUS_SUPPLY_CHAIN_AGENT",
+      "pos": [840, 270],
+      "size": [165, 70],
+      "tag": "CREATE AGENT"
+    },
+    {
+      "id": "cortex_analyst",
+      "type": "backend",
+      "label": "Cortex Analyst",
+      "sublabel": "Text-to-SQL · nexus_analyst tool",
+      "pos": [840, 80],
+      "size": [165, 64]
+    },
+    {
+      "id": "sql_udfs",
+      "type": "backend",
+      "label": "SQL UDF Tools (×4)",
+      "sublabel": "Scenario execution functions",
+      "pos": [840, 460],
+      "size": [165, 64],
+      "tag": "NEXUS_DB.TOOLS"
+    },
+    {
+      "id": "semantic_view",
+      "type": "database",
+      "label": "Semantic View",
+      "sublabel": "NEXUS_SUPPLY_CHAIN",
+      "pos": [1110, 80],
+      "size": [175, 70],
+      "tag": "14 governed metrics"
+    },
+    {
+      "id": "raw_data",
+      "type": "database",
+      "label": "RAW Data Layer",
+      "sublabel": "9 entity tables",
+      "pos": [1110, 270],
+      "size": [175, 70],
+      "tag": "Supplier → Customer"
+    },
+    {
+      "id": "scenario_engine",
+      "type": "database",
+      "label": "Scenario Engine",
+      "sublabel": "15+ deterministic SQL views",
+      "pos": [1110, 430],
+      "size": [175, 70],
+      "tag": "NEXUS_DB.SCENARIOS"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Snowflake — NEXUS_DB  (AWS ap-northeast-1 · account EB70963)",
+      "wraps": ["snowpark", "cortex_agent", "cortex_analyst", "sql_udfs", "semantic_view", "scenario_engine", "raw_data"]
+    },
+    {
+      "kind": "security-group",
+      "label": "AI Intelligence Layer",
+      "wraps": ["cortex_agent", "cortex_analyst"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-to-sis",
+      "from": "users",
+      "to": "sis",
+      "label": "browser / HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "coco-scaffold-sis",
+      "from": "coco_cli",
+      "to": "sis",
+      "label": "snow streamlit deploy",
+      "variant": "dashed"
+    },
+    {
+      "id": "sis-snowpark",
+      "from": "sis",
+      "to": "snowpark",
+      "label": "Snowpark session",
+      "variant": "emphasis"
+    },
+    {
+      "id": "snowpark-agent",
+      "from": "snowpark",
+      "to": "cortex_agent",
+      "label": "invoke agent",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agent-analyst",
+      "from": "cortex_agent",
+      "to": "cortex_analyst",
+      "label": "NL query route",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "agent-udfs",
+      "from": "cortex_agent",
+      "to": "sql_udfs",
+      "label": "scenario route",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "analyst-semantic",
+      "from": "cortex_analyst",
+      "to": "semantic_view",
+      "label": "text-to-SQL"
+    },
+    {
+      "id": "udfs-scenarios",
+      "from": "sql_udfs",
+      "to": "scenario_engine",
+      "label": "execute views"
+    },
+    {
+      "id": "semantic-raw",
+      "from": "semantic_view",
+      "to": "raw_data",
+      "label": "governed query",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "scenario-raw",
+      "from": "scenario_engine",
+      "to": "raw_data",
+      "label": "SQL views",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Presentation Layer (SiS)",
+      "items": [
+        "KPI strip — 4 live supply-chain metrics",
+        "Animated cascade chain — Supplier → Customer",
+        "Mitigation comparison — 4 strategies side-by-side",
+        "Ask NEXUS — Cortex AI chat panel in sidebar",
+        "Evidence panel — governed metric definitions",
+        "Scenario controls — parameter-driven what-if",
+        "Freight shock & dependency graph views"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "AI Intelligence (Cortex Agent)",
+      "items": [
+        "NEXUS_SUPPLY_CHAIN_AGENT (CREATE AGENT)",
+        "Routes NL questions → Cortex Analyst or SQL UDFs",
+        "4 tool UDFs: RUN_ACTIVE_SUPPLIER_FAILURE, COMPARE_ACTIVE_MITIGATIONS, RUN_ACTIVE_PORT_DISRUPTION, GET_ACTIVE_FREIGHT_SHOCK",
+        "Synthesizes evidence-backed answers with provenance"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Semantic View — NEXUS_SUPPLY_CHAIN",
+      "items": [
+        "11 logical tables · 13 governed relationships",
+        "14 business metrics (At-Risk Revenue, Cascade Depth, …)",
+        "10 AI-verified queries with VERIFIED_AT timestamps",
+        "15 AI SQL generation rules preventing double-counting",
+        "GREATEST / NULLIF computed inline in FACTS"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Scenario Engine (SQL Views)",
+      "items": [
+        "Supplier Failure — BOM cascade via window SUM OVER priority",
+        "Port Disruption — shipment → parts → plant propagation",
+        "Freight Shock — 40% cost increase, profitability recalc",
+        "4 mitigation strategies: No Action · Expedite · Reallocation · Alt Supplier",
+        "33 passing SQL test assertions in 015_extended_tests.sql"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "RAW Data Ontology",
+      "items": [
+        "9 entity tables: Suppliers · Parts · Plants · Inventory",
+        "Products · Orders · Customers · Shipments · Ports",
+        "Multi-tier BOM via PRODUCT_PARTS join table",
+        "SUPPLIER_PARTS qualification table (not SHIPMENTS)",
+        "All 17 SQL scripts idempotent — CREATE OR REPLACE"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Built with CoCo CLI",
+      "items": [
+        "snow coco → 001_schema.sql (ontology design)",
+        "snow coco → 006_scenario_engine.sql (cascade SQL)",
+        "snow coco → 013_nexus_semantic_view.sql (semantic layer)",
+        "snow coco → 014_nexus_agent.sql (agent scaffolding)",
+        "snow cortex complete → live Q&A via Cortex",
+        "snow streamlit deploy → SiS native deployment"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "c4b5801b-ec6c-4990-86bc-60ef4d42a066",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/harshahg/Desktop/nexus/docs/nexus-architecture.json",
+  "output": "/Users/harshahg/Desktop/nexus/docs/nexus-architecture.html",
+  "specification": {
+    "sha256": "a1f0b5ec7ad9de711eaa371e7a3beb0a275a365a4bdf3f50cfa0fc4f6b1b53dd",
+    "bytes": 7252
+  },
+  "artifact": {
+    "sha256": "0af4efb474a4faaa939ea39f249bd10ecc4d0e5e2f1aac6bf2ef1f5a155c345d",
+    "bytes": 771627
+  }
+}
