@@ -24,23 +24,6 @@ st.set_page_config(
 from ui.theme import GLOBAL_CSS, C, FONT, SHADOW_MD
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 
-# ── Floating chat bubble (decorative — shows chat is available) ───────────────
-# SiS blocks JS so the bubble is visual only; the real button is at top of sidebar
-_bubble_color = "#DC2626" if st.session_state.get("sidebar_mode") == "chat" else "#00C49A"
-_bubble_icon  = "✕" if st.session_state.get("sidebar_mode") == "chat" else "💬"
-_bubble_title = "Chat open — use sidebar" if st.session_state.get("sidebar_mode") == "chat" else "Click 💬 Ask NEXUS AI in the sidebar"
-st.markdown(
-    f"<div title='{_bubble_title}' style='"
-    f"position:fixed;bottom:28px;right:28px;z-index:9997;"
-    f"width:52px;height:52px;border-radius:50%;"
-    f"background:{_bubble_color};color:#fff;"
-    f"display:flex;align-items:center;justify-content:center;"
-    f"font-size:1.5rem;pointer-events:none;"
-    f"box-shadow:0 4px 20px rgba(0,0,0,0.18);"
-    f"transition:background 0.3s ease;'>"
-    f"{_bubble_icon}</div>",
-    unsafe_allow_html=True,
-)
 
 
 # ─── SIDEBAR — Interactive Scenario Controls ──────────────────────────────────
