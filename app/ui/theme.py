@@ -78,6 +78,32 @@ SHADOW_LG  = "0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)"
 # SAFE: no @import, targets Streamlit data-testid selectors only
 GLOBAL_CSS = f"""<style>
 
+/* ── Force light theme (works in SiS dark mode and localhost) ───────────── */
+[data-testid="stApp"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+section[data-testid="stMain"],
+.main, .main > div {{
+    background-color: {C.BASE} !important;
+    color: {C.T1} !important;
+}}
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div:first-child {{
+    background-color: {C.CARD} !important;
+    border-right: 1px solid {C.BORDER} !important;
+}}
+/* Sidebar text/labels in light mode */
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] .stMarkdown p {{
+    color: {C.T3} !important;
+}}
+[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMin"],
+[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMax"] {{
+    color: {C.T5} !important;
+}}
+
 /* ── Typography ─────────────────────────────────────────────────────────── */
 * {{ font-family: {FONT}; }}
 h1,h2,h3,h4,h5,h6 {{ color: {C.T1} !important; font-weight: 700; }}

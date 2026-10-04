@@ -376,6 +376,12 @@ kpi_cards.render()
 
 st.write("")
 
+# ─── ASK NEXUS (pinned high — right below KPIs so it's always visible) ───────
+from components import chat
+chat.render()
+
+st.markdown("---")
+
 # ─── SCENARIO BANNER ─────────────────────────────────────────────────────────
 from components import scenario_panel
 scenario_panel.render()
@@ -438,12 +444,6 @@ st.markdown("---")
 # ─── FREIGHT SHOCK PANEL ─────────────────────────────────────────────────────
 from components.freight_shock_panel import render as _render_freight
 _render_freight()
-
-st.markdown("---")
-
-# ─── ASK NEXUS ───────────────────────────────────────────────────────────────
-from components import chat
-chat.render()
 
 st.markdown("---")
 
