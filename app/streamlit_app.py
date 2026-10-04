@@ -56,7 +56,13 @@ with st.sidebar:
 from components.scenario_controls import render_sidebar as _render_sidebar
 _render_sidebar()
 
-# ── Continue sidebar footer ───────────────────────────────────────────────────
+# ── Ask NEXUS sidebar panel (SiS: always visible, no CSS tricks needed) ──────
+with st.sidebar:
+    st.markdown("---")
+    from components.chat import render_sidebar_input as _render_sidebar_input
+    _render_sidebar_input()
+
+# ── Sidebar footer ────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("---")
     # GitHub link

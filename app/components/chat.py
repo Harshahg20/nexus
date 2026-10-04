@@ -27,33 +27,56 @@ _AGENT_NOTE = (
 
 def render_sidebar_input() -> None:
     """
-    Renders the Ask NEXUS text input inside the sidebar.
-    Called only when st.chat_input is NOT available (SiS warehouse runtime).
-    This keeps the input always visible regardless of scroll position.
+    Sidebar Ask NEXUS panel — rendered at the bottom of the sidebar.
+    Works in ALL Streamlit / SiS versions (no st.form, no position:fixed).
+    Always visible because the sidebar itself is always visible.
     """
     if hasattr(st, "chat_input"):
-        return  # Modern Streamlit: chat_input auto-pins to bottom; nothing needed here
+        return  # Modern Streamlit: chat_input auto-pins to bottom of main area
 
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
+    if "sb_ver" not in st.session_state:
+        st.session_state.sb_ver = 0
+    if "sb_show_prompts" not in st.session_state:
+        st.session_state.sb_show_prompts = True
 
+    # ── Header ───────────────────────────────────────────────────────────
     st.markdown(
-        f"<div style='margin-top:4px;margin-bottom:6px;"
-        f"font-size:0.62rem;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.14em;color:{C.TEAL};font-family:{FONT};'>"
-        f"Ask NEXUS (Cortex AI)</div>",
+        f"<div style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.14em;color:{C.TEAL};margin-bottom:8px;"
+        f"font-family:{FONT};'>💬 Ask NEXUS</div>",
         unsafe_allow_html=True,
     )
-    with st.form(key="nexus_sidebar_chat_form", clear_on_submit=True):
-        prompt_text = st.text_input(
-            "",
-            placeholder="e.g. What breaks if SUP-001 fails?",
+
+    # ── Input row: text + send button ────────────────────────────────────
+    c_in, c_btn = st.columns([5, 1])
+    with c_in:
+        query = st.text_input(
+            "sb_query",
+            placeholder="Ask anything…",
             label_visibility="collapsed",
+            key=f"sb_input_{st.session_state.sb_ver}",
         )
-        submitted = st.form_submit_button("Ask ▶", use_container_width=True)
-    if submitted and prompt_text.strip():
-        _submit(prompt_text.strip())
+    with c_btn:
+        if st.button("▶", key="sb_send", help="Send"):
+            if query and query.strip():
+                st.session_state.sb_ver += 1
+                _submit(query.strip())
+                st_rerun()
+
+    # ── Quick prompts toggle ──────────────────────────────────────────────
+    show = st.session_state.sb_show_prompts
+    toggle_label = "▲ Hide prompts" if show else "▼ Try asking…"
+    if st.button(toggle_label, key="sb_toggle"):
+        st.session_state.sb_show_prompts = not show
         st_rerun()
+
+    if show:
+        for chip_label, question in EXAMPLE_QUESTIONS:
+            if st.button(chip_label, key=f"sb_chip_{chip_label[:12]}"):
+                _submit(question)
+                st_rerun()
 
 
 def render():
@@ -71,8 +94,6 @@ def render():
         f"and your governed semantic layer.</p>",
         unsafe_allow_html=True,
     )
-
-    # (Quick prompts live in the fixed bottom bar — click 💡 to reveal)
 
     # ── Chat history ──────────────────────────────────────────────────────────
     _HAS_CHAT_MSG = hasattr(st, "chat_message")
@@ -95,12 +116,7 @@ def render():
             else:
                 st_toast("Please enter a question before submitting.", icon="✏️")
     else:
-        # SiS: bottom padding so fixed bar doesn't cover last content item
-        st.markdown("<div style='height:80px'></div>", unsafe_allow_html=True)
-
-    # ── Fixed bottom bar (always renders for SiS) ─────────────────────────
-    if not hasattr(st, "chat_input"):
-        _render_fixed_bar()
+        st.info("💬 Use the **Ask NEXUS** panel in the sidebar to chat.", icon=None)
 
     # ── Provenance note ───────────────────────────────────────────────────────
     st.caption(_AGENT_NOTE)

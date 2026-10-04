@@ -273,21 +273,8 @@ hr {{
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
 }}
 
-/* ── Fixed bottom chat bar (SiS — always visible) ───────────────────────── */
-/* Targets the last vertical block in the main content which holds our bar   */
-[data-testid="stVerticalBlock"] > div:last-child > div:last-child {{
-    position: fixed !important;
-    bottom: 0 !important;
-    left: var(--sidebar-width, 21rem) !important;
-    right: 0 !important;
-    z-index: 9998 !important;
-    background: rgba(248, 250, 252, 0.97) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    border-top: 1px solid {C.BORDER} !important;
-    padding: 10px 2.5rem 14px !important;
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.07) !important;
-}}
+/* ── Sidebar Ask NEXUS input ─────────────────────────────────────────────── */
+/* No position:fixed needed — sidebar is inherently always visible in SiS    */
 
 /* ── Fixed bar: input field ──────────────────────────────────────────────── */
 [data-testid="stTextInput"] input {{
