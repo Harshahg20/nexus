@@ -25,6 +25,37 @@ _AGENT_NOTE = (
 )
 
 
+def render_sidebar_input() -> None:
+    """
+    Renders the Ask NEXUS text input inside the sidebar.
+    Called only when st.chat_input is NOT available (SiS warehouse runtime).
+    This keeps the input always visible regardless of scroll position.
+    """
+    if hasattr(st, "chat_input"):
+        return  # Modern Streamlit: chat_input auto-pins to bottom; nothing needed here
+
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+
+    st.markdown(
+        f"<div style='margin-top:4px;margin-bottom:6px;"
+        f"font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.14em;color:{C.TEAL};font-family:{FONT};'>"
+        f"Ask NEXUS (Cortex AI)</div>",
+        unsafe_allow_html=True,
+    )
+    with st.form(key="nexus_sidebar_chat_form", clear_on_submit=True):
+        prompt_text = st.text_input(
+            "",
+            placeholder="e.g. What breaks if SUP-001 fails?",
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("Ask ▶", use_container_width=True)
+    if submitted and prompt_text.strip():
+        _submit(prompt_text.strip())
+        st_rerun()
+
+
 def render():
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
@@ -66,11 +97,12 @@ def render():
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
         else:
-            prefix = "🧑 **You**" if msg["role"] == "user" else f"🤖 **NEXUS**"
+            prefix = "🧑 **You**" if msg["role"] == "user" else "🤖 **NEXUS**"
             st.markdown(f"{prefix}: {msg['content']}")
             st.divider()
 
-    # ── Input — chat_input (modern) or form fallback (older SiS runtime) ─────
+    # ── Input — chat_input (modern Streamlit, auto-pins to bottom) ────────────
+    # SiS fallback: input is in the sidebar via render_sidebar_input() above.
     if hasattr(st, "chat_input"):
         if prompt := st.chat_input("Ask NEXUS about your supply chain…"):
             stripped = prompt.strip()
@@ -79,15 +111,10 @@ def render():
             else:
                 st_toast("Please enter a question before submitting.", icon="✏️")
     else:
-        with st.form(key="nexus_chat_form", clear_on_submit=True):
-            prompt_text = st.text_input(
-                "Ask NEXUS about your supply chain…",
-                placeholder="e.g. What breaks if SUP-001 is unavailable for 14 days?",
-            )
-            submitted = st.form_submit_button("Send ▶")
-        if submitted and prompt_text.strip():
-            _submit(prompt_text.strip())
-            st_rerun()
+        st.caption(
+            "Use the **Ask NEXUS** input in the sidebar (always visible) "
+            "or click a quick-question chip above."
+        )
 
     # ── Provenance note ───────────────────────────────────────────────────────
     st.caption(_AGENT_NOTE)

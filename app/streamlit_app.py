@@ -56,6 +56,12 @@ with st.sidebar:
 from components.scenario_controls import render_sidebar as _render_sidebar
 _render_sidebar()
 
+# ── Ask NEXUS input pinned in sidebar (SiS fallback — always visible) ────────
+with st.sidebar:
+    st.markdown("---")
+    from components.chat import render_sidebar_input as _render_chat_input
+    _render_chat_input()
+
 # ── Continue sidebar footer ───────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("---")
