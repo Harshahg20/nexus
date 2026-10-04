@@ -248,6 +248,24 @@ hr {{
     padding: 16px 20px !important;
 }}
 
+/* ── Expander inner content — force ALL text dark (SiS renders it near-white) */
+[data-testid="stExpander"] p,
+[data-testid="stExpander"] li,
+[data-testid="stExpander"] ol,
+[data-testid="stExpander"] ul,
+[data-testid="stExpander"] span,
+[data-testid="stExpander"] div,
+[data-testid="stExpander"] strong,
+[data-testid="stExpander"] em,
+[data-testid="stExpander"] [data-testid="stMarkdownContainer"],
+[data-testid="stExpander"] [data-testid="stMarkdownContainer"] * {{
+    color: {C.T2} !important;
+}}
+/* Keep links teal inside expanders */
+[data-testid="stExpander"] a {{
+    color: {C.TEAL_TEXT} !important;
+}}
+
 /* ── DataFrames ─────────────────────────────────────────────────────────── */
 [data-testid="stDataFrame"] {{
     border-radius: 10px !important;
