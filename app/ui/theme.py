@@ -273,63 +273,108 @@ hr {{
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
 }}
 
-/* ── SiS inline chat form — looks like st.chat_input ────────────────────── */
+/* ── Fixed bottom chat bar (SiS — always visible) ───────────────────────── */
+/* position:fixed removes it from normal flow; left accounts for sidebar     */
 [data-testid="stForm"] {{
-    background: {C.CARD} !important;
-    border: 1px solid {C.BORDER_MD} !important;
-    border-radius: 14px !important;
-    padding: 2px 4px 2px 8px !important;
-    box-shadow: {SHADOW_SM} !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: var(--sidebar-width, 21rem) !important;
+    right: 0 !important;
+    z-index: 9998 !important;
+    background: rgba(248, 250, 252, 0.97) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: none !important;
+    border-top: 1px solid {C.BORDER} !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 10px 2.5rem 14px !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.07) !important;
 }}
-[data-testid="stForm"]:focus-within {{
-    border-color: {C.TEAL} !important;
-    box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
-}}
-/* Input field inside the form */
+
+/* Input field inside the fixed bar */
 [data-testid="stForm"] input[type="text"],
 [data-testid="stForm"] input {{
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+    background: {C.CARD} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 10px !important;
     color: {C.T1} !important;
-    font-size: 0.95rem !important;
+    font-size: 0.92rem !important;
     font-family: {FONT} !important;
     caret-color: {C.TEAL} !important;
+    padding: 10px 14px !important;
+    box-shadow: none !important;
     outline: none !important;
-    padding: 10px 0 !important;
+    width: 100% !important;
 }}
 [data-testid="stForm"] input::placeholder {{
     color: {C.T5} !important;
     opacity: 1 !important;
 }}
-/* Focus border on the input itself — suppress default blue ring */
 [data-testid="stForm"] input:focus {{
-    border: none !important;
-    box-shadow: none !important;
+    border-color: {C.TEAL} !important;
+    box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
     outline: none !important;
 }}
-/* Send button — teal circle like st.chat_input send button */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] button,
-[data-testid="stForm"] button[kind="formSubmit"] {{
+
+/* Send button (▶) — teal, matches st.chat_input send button */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:last-child button,
+[data-testid="stForm"] button[data-testid="baseButton-secondaryFormSubmit"]:last-child {{
     background: {C.TEAL} !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 10px !important;
-    padding: 0 !important;
     min-height: 42px !important;
     font-size: 1rem !important;
     font-weight: 700 !important;
     box-shadow: 0 2px 8px rgba(0,196,154,0.35) !important;
     transition: background 0.18s ease, transform 0.15s ease !important;
     width: 100% !important;
-    text-align: center !important;
 }}
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {{
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:last-child button:hover {{
     background: #00a880 !important;
     transform: scale(1.06) !important;
     box-shadow: 0 4px 14px rgba(0,196,154,0.45) !important;
-    color: #ffffff !important;
-    border-color: transparent !important;
+}}
+
+/* 💡 toggle button — subtle pill */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:first-child button {{
+    background: {C.BASE} !important;
+    color: {C.T3} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 10px !important;
+    min-height: 42px !important;
+    font-size: 1rem !important;
+    box-shadow: none !important;
+    width: 100% !important;
+}}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:first-child button:hover {{
+    background: {C.TEAL_DIM} !important;
+    border-color: {C.TEAL_BORDER} !important;
+    color: {C.TEAL_TEXT} !important;
+}}
+
+/* Quick-prompt chip buttons (all submit buttons except first 💡 and last ▶) */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:first-child):not(:last-child) button {{
+    background: {C.CARD} !important;
+    color: {C.T3} !important;
+    border: 1px solid {C.BORDER} !important;
+    border-radius: 20px !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    padding: 5px 10px !important;
+    min-height: 34px !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:first-child):not(:last-child) button:hover {{
+    background: {C.TEAL_DIM} !important;
+    border-color: {C.TEAL_BORDER} !important;
+    color: {C.TEAL_TEXT} !important;
 }}
 
 /* ── Chip / action buttons ───────────────────────────────────────────────── */

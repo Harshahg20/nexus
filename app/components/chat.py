@@ -111,24 +111,12 @@ def render():
             else:
                 st_toast("Please enter a question before submitting.", icon="✏️")
     else:
-        # SiS fallback: inline styled form that looks like the chat bar
-        st.markdown(
-            f"<div style='height:1px;background:{C.BORDER};margin:12px 0 16px;'></div>",
-            unsafe_allow_html=True,
-        )
-        with st.form("nexus_inline_chat_form", clear_on_submit=True):
-            c_input, c_btn = st.columns([9, 1])
-            with c_input:
-                prompt_text = st.text_input(
-                    "chat_input",
-                    placeholder="Ask NEXUS about your supply chain…",
-                    label_visibility="collapsed",
-                )
-            with c_btn:
-                submitted = st.form_submit_button("▶", use_container_width=True)
-        if submitted and prompt_text.strip():
-            _submit(prompt_text.strip())
-            st_rerun()
+        # SiS: bottom padding so fixed bar doesn't cover last content item
+        st.markdown("<div style='height:80px'></div>", unsafe_allow_html=True)
+
+    # ── Fixed bottom bar (always renders for SiS) ─────────────────────────
+    if not hasattr(st, "chat_input"):
+        _render_fixed_bar()
 
     # ── Provenance note ───────────────────────────────────────────────────────
     st.caption(_AGENT_NOTE)
@@ -259,3 +247,70 @@ def _show_generic_error() -> None:
     st.session_state.chat_messages.append(
         {"role": "assistant", "content": _generic_error_md()}
     )
+
+
+def _render_fixed_bar() -> None:
+    """
+    Fixed bottom chat bar for SiS (no st.chat_input).
+    Always visible regardless of scroll position.
+    💡 button expands quick-prompt chips inside the bar.
+    """
+    if "nexus_show_prompts" not in st.session_state:
+        st.session_state.nexus_show_prompts = False
+
+    show = st.session_state.nexus_show_prompts
+
+    with st.form("nexus_fixed_bar", clear_on_submit=True):
+        # ── Quick-prompt chips (shown when toggled) ───────────────────────
+        if show:
+            st.markdown(
+                f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+                f"letter-spacing:0.14em;color:{C.T4};margin:0 0 8px;font-family:{FONT};'>"
+                f"Try asking</p>",
+                unsafe_allow_html=True,
+            )
+            chip_cols = st.columns(3)
+            chip_clicked: dict[int, str] = {}
+            for i, (chip_label, question) in enumerate(EXAMPLE_QUESTIONS):
+                with chip_cols[i % 3]:
+                    if st.form_submit_button(
+                        chip_label,
+                        key=f"fbar_chip_{i}",
+                        use_container_width=True,
+                    ):
+                        chip_clicked[i] = question
+            st.markdown(
+                f"<div style='height:1px;background:{C.BORDER};margin:8px 0;'></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            chip_clicked = {}
+
+        # ── Input row ────────────────────────────────────────────────────
+        c_bulb, c_input, c_send = st.columns([1, 9, 1])
+        with c_bulb:
+            toggle_clicked = st.form_submit_button(
+                "💡", help="Show quick prompts", use_container_width=True
+            )
+        with c_input:
+            typed = st.text_input(
+                "ask_nexus_bar",
+                placeholder="Ask NEXUS about your supply chain…",
+                label_visibility="collapsed",
+            )
+        with c_send:
+            send_clicked = st.form_submit_button("▶", use_container_width=True)
+
+    # ── Handle submissions ────────────────────────────────────────────────
+    if chip_clicked:
+        question = next(iter(chip_clicked.values()))
+        st.session_state.nexus_show_prompts = False
+        _submit(question)
+        st_rerun()
+    elif toggle_clicked:
+        st.session_state.nexus_show_prompts = not show
+        st_rerun()
+    elif send_clicked and typed.strip():
+        st.session_state.nexus_show_prompts = False
+        _submit(typed.strip())
+        st_rerun()
