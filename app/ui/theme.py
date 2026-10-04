@@ -274,8 +274,8 @@ hr {{
 }}
 
 /* ── Fixed bottom chat bar (SiS — always visible) ───────────────────────── */
-/* position:fixed removes it from normal flow; left accounts for sidebar     */
-[data-testid="stForm"] {{
+/* Targets the last vertical block in the main content which holds our bar   */
+[data-testid="stVerticalBlock"] > div:last-child > div:last-child {{
     position: fixed !important;
     bottom: 0 !important;
     left: var(--sidebar-width, 21rem) !important;
@@ -284,17 +284,13 @@ hr {{
     background: rgba(248, 250, 252, 0.97) !important;
     backdrop-filter: blur(14px) !important;
     -webkit-backdrop-filter: blur(14px) !important;
-    border: none !important;
     border-top: 1px solid {C.BORDER} !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
     padding: 10px 2.5rem 14px !important;
     box-shadow: 0 -4px 24px rgba(0,0,0,0.07) !important;
 }}
 
-/* Input field inside the fixed bar */
-[data-testid="stForm"] input[type="text"],
-[data-testid="stForm"] input {{
+/* ── Fixed bar: input field ──────────────────────────────────────────────── */
+[data-testid="stTextInput"] input {{
     background: {C.CARD} !important;
     border: 1px solid {C.BORDER_MD} !important;
     border-radius: 10px !important;
@@ -304,94 +300,22 @@ hr {{
     caret-color: {C.TEAL} !important;
     padding: 10px 14px !important;
     box-shadow: none !important;
-    outline: none !important;
-    width: 100% !important;
 }}
-[data-testid="stForm"] input::placeholder {{
+[data-testid="stTextInput"] input::placeholder {{
     color: {C.T5} !important;
     opacity: 1 !important;
 }}
-[data-testid="stForm"] input:focus {{
+[data-testid="stTextInput"] input:focus {{
     border-color: {C.TEAL} !important;
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
     outline: none !important;
 }}
 
-/* Send button (▶) — teal, matches st.chat_input send button */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:last-child button,
-[data-testid="stForm"] button[data-testid="baseButton-secondaryFormSubmit"]:last-child {{
-    background: {C.TEAL} !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 10px !important;
-    min-height: 42px !important;
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-    box-shadow: 0 2px 8px rgba(0,196,154,0.35) !important;
-    transition: background 0.18s ease, transform 0.15s ease !important;
-    width: 100% !important;
+/* ── Fixed bar: Send ▶ button — key fbar_send ────────────────────────────── */
+button[data-testid="baseButton-secondary"][kind="secondary"] {{
+    /* fallback — will be overridden by more specific chip/send selectors */
 }}
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:last-child button:hover {{
-    background: #00a880 !important;
-    transform: scale(1.06) !important;
-    box-shadow: 0 4px 14px rgba(0,196,154,0.45) !important;
-}}
-
-/* 💡 toggle button — subtle pill */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:first-child button {{
-    background: {C.BASE} !important;
-    color: {C.T3} !important;
-    border: 1px solid {C.BORDER_MD} !important;
-    border-radius: 10px !important;
-    min-height: 42px !important;
-    font-size: 1rem !important;
-    box-shadow: none !important;
-    width: 100% !important;
-}}
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:first-child button:hover {{
-    background: {C.TEAL_DIM} !important;
-    border-color: {C.TEAL_BORDER} !important;
-    color: {C.TEAL_TEXT} !important;
-}}
-
-/* Quick-prompt chip buttons (all submit buttons except last two: 💡 and ▶) */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:nth-last-child(-n+2)) button {{
-    background: {C.CARD} !important;
-    color: {C.T3} !important;
-    border: 1px solid {C.BORDER} !important;
-    border-radius: 20px !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    padding: 6px 12px !important;
-    min-height: 36px !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    text-align: center !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
-}}
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:nth-last-child(-n+2)) button:hover {{
-    background: {C.TEAL_DIM} !important;
-    border-color: {C.TEAL_BORDER} !important;
-    color: {C.TEAL_TEXT} !important;
-}}
-
-/* ✕ close button — tiny dismiss pill */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] button[data-testid*="fbar_close"],
-[data-testid="stForm"] button:has(+ button) {{
-    background: transparent !important;
-    color: {C.T5} !important;
-    border: none !important;
-    box-shadow: none !important;
-    font-size: 0.8rem !important;
-    min-height: 24px !important;
-    padding: 0 !important;
-}}
-[data-testid="stForm"] [data-testid="stFormSubmitButton"] button[data-testid*="fbar_close"]:hover {{
-    color: {C.T2} !important;
-}}
+/* Target by aria-label or data-testid isn't reliable; use :last-child of its column */
 
 /* ── Chip / action buttons ───────────────────────────────────────────────── */
 .stButton > button {{

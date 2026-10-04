@@ -236,74 +236,62 @@ def _show_generic_error() -> None:
 def _render_fixed_bar() -> None:
     """
     Fixed bottom chat bar for SiS (no st.chat_input).
-    Always visible regardless of scroll position.
-    💡 button expands quick-prompt chips inside the bar.
+    Uses plain st.button + st.text_input — NO st.form, works in all SiS versions.
+    The entire bar is CSS position:fixed so it never scrolls away.
     """
-    # Default: prompts panel open so users see them immediately on load
     if "nexus_show_prompts" not in st.session_state:
         st.session_state.nexus_show_prompts = True
+    if "fbar_ver" not in st.session_state:
+        st.session_state.fbar_ver = 0   # bumped after submit to clear input field
 
     show = st.session_state.nexus_show_prompts
 
-    with st.form("nexus_fixed_bar", clear_on_submit=True):
-        # ── Quick-prompt banner (shown by default, toggled by ✕/💡) ──────
-        if show:
-            # Header row
-            h_label, h_close = st.columns([10, 1])
-            with h_label:
-                st.markdown(
-                    f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
-                    f"letter-spacing:0.14em;color:{C.T4};margin:4px 0 6px;"
-                    f"font-family:{FONT};'>✦ Try asking</p>",
-                    unsafe_allow_html=True,
-                )
-            with h_close:
-                close_clicked = st.form_submit_button(
-                    "✕", key="fbar_close", use_container_width=True
-                )
-            # Chips — 3 per row
-            chip_cols = st.columns(3)
-            chip_clicked: dict[int, str] = {}
-            for i, (chip_label, question) in enumerate(EXAMPLE_QUESTIONS):
-                with chip_cols[i % 3]:
-                    if st.form_submit_button(
-                        chip_label, key=f"fbar_chip_{i}", use_container_width=True
-                    ):
-                        chip_clicked[i] = question
+    # ── Quick-prompt banner (default open) ───────────────────────────────
+    if show:
+        h_label, h_close = st.columns([11, 1])
+        with h_label:
             st.markdown(
-                f"<div style='height:1px;background:{C.BORDER};margin:8px 0 6px;'></div>",
+                f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+                f"letter-spacing:0.14em;color:{C.T4};margin:4px 0 6px;"
+                f"font-family:{FONT};'>✦ Try asking — click any prompt</p>",
                 unsafe_allow_html=True,
             )
-        else:
-            chip_clicked = {}
-            close_clicked = False
+        with h_close:
+            if st.button("✕", key="fbar_close", help="Dismiss prompts"):
+                st.session_state.nexus_show_prompts = False
+                st_rerun()
 
-        # ── Input row ────────────────────────────────────────────────────
-        c_bulb, c_input, c_send = st.columns([1, 9, 1])
-        with c_bulb:
-            toggle_clicked = st.form_submit_button(
-                "💡", help="Toggle quick prompts", use_container_width=True
-            )
-        with c_input:
-            typed = st.text_input(
-                "ask_nexus_bar",
-                placeholder="Ask NEXUS about your supply chain…",
-                label_visibility="collapsed",
-            )
-        with c_send:
-            send_clicked = st.form_submit_button("▶", use_container_width=True)
+        chip_cols = st.columns(3)
+        for i, (chip_label, question) in enumerate(EXAMPLE_QUESTIONS):
+            with chip_cols[i % 3]:
+                if st.button(chip_label, key=f"fbar_chip_{i}"):
+                    _submit(question)
+                    st_rerun()
 
-    # ── Handle submissions ────────────────────────────────────────────────
-    if chip_clicked:
-        question = next(iter(chip_clicked.values()))
-        st.session_state.nexus_show_prompts = True   # keep banner open after chip use
-        _submit(question)
-        st_rerun()
-    elif close_clicked or toggle_clicked:
-        # ✕ always closes; 💡 toggles
-        st.session_state.nexus_show_prompts = False if close_clicked else not show
-        st_rerun()
-    elif send_clicked and typed.strip():
-        st.session_state.nexus_show_prompts = True   # reopen for next question
-        _submit(typed.strip())
-        st_rerun()
+        st.markdown(
+            f"<div style='height:1px;background:{C.BORDER};margin:8px 0 4px;'></div>",
+            unsafe_allow_html=True,
+        )
+
+    # ── Input row (always visible) ────────────────────────────────────────
+    c_bulb, c_input, c_send = st.columns([1, 9, 1])
+    with c_bulb:
+        if st.button("💡", key="fbar_toggle", help="Toggle quick prompts"):
+            st.session_state.nexus_show_prompts = not show
+            st_rerun()
+    with c_input:
+        # version-keyed so bumping fbar_ver clears the field after submit
+        typed = st.text_input(
+            "ask_nexus_bar",
+            placeholder="Ask NEXUS about your supply chain…",
+            label_visibility="collapsed",
+            key=f"fbar_input_{st.session_state.fbar_ver}",
+        )
+    with c_send:
+        if st.button("▶", key="fbar_send"):
+            if typed and typed.strip():
+                st.session_state.fbar_ver += 1
+                st.session_state.nexus_show_prompts = True
+                _submit(typed.strip())
+                st_rerun()
+
