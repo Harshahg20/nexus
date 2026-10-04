@@ -354,27 +354,43 @@ hr {{
     color: {C.TEAL_TEXT} !important;
 }}
 
-/* Quick-prompt chip buttons (all submit buttons except first 💡 and last ▶) */
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:first-child):not(:last-child) button {{
+/* Quick-prompt chip buttons (all submit buttons except last two: 💡 and ▶) */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:nth-last-child(-n+2)) button {{
     background: {C.CARD} !important;
     color: {C.T3} !important;
     border: 1px solid {C.BORDER} !important;
     border-radius: 20px !important;
-    font-size: 0.75rem !important;
+    font-size: 0.78rem !important;
     font-weight: 500 !important;
-    padding: 5px 10px !important;
-    min-height: 34px !important;
+    padding: 6px 12px !important;
+    min-height: 36px !important;
     box-shadow: none !important;
     width: 100% !important;
-    text-align: left !important;
+    text-align: center !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
 }}
-[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:first-child):not(:last-child) button:hover {{
+[data-testid="stForm"] [data-testid="stFormSubmitButton"]:not(:nth-last-child(-n+2)) button:hover {{
     background: {C.TEAL_DIM} !important;
     border-color: {C.TEAL_BORDER} !important;
     color: {C.TEAL_TEXT} !important;
+}}
+
+/* ✕ close button — tiny dismiss pill */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button[data-testid*="fbar_close"],
+[data-testid="stForm"] button:has(+ button) {{
+    background: transparent !important;
+    color: {C.T5} !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 0.8rem !important;
+    min-height: 24px !important;
+    padding: 0 !important;
+}}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button[data-testid*="fbar_close"]:hover {{
+    color: {C.T2} !important;
 }}
 
 /* ── Chip / action buttons ───────────────────────────────────────────────── */

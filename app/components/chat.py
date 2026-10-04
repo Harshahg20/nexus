@@ -72,23 +72,7 @@ def render():
         unsafe_allow_html=True,
     )
 
-    # ── Example questions ─────────────────────────────────────────────────────
-    st.markdown(
-        f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.15em;color:{C.T5};margin-bottom:8px;font-family:{FONT};'>"
-        f"Try asking</p>",
-        unsafe_allow_html=True,
-    )
-
-    chip_cols = st.columns(2)
-    for i, (chip_label, question) in enumerate(EXAMPLE_QUESTIONS):
-        with chip_cols[i % 2]:
-            if st.button(chip_label, key=f"nexus_chip_{i}"):
-                if question and question.strip():
-                    _submit(question)
-                    st_rerun()
-
-    st.write("")
+    # (Quick prompts live in the fixed bottom bar — click 💡 to reveal)
 
     # ── Chat history ──────────────────────────────────────────────────────────
     _HAS_CHAT_MSG = hasattr(st, "chat_message")
@@ -255,42 +239,50 @@ def _render_fixed_bar() -> None:
     Always visible regardless of scroll position.
     💡 button expands quick-prompt chips inside the bar.
     """
+    # Default: prompts panel open so users see them immediately on load
     if "nexus_show_prompts" not in st.session_state:
-        st.session_state.nexus_show_prompts = False
+        st.session_state.nexus_show_prompts = True
 
     show = st.session_state.nexus_show_prompts
 
     with st.form("nexus_fixed_bar", clear_on_submit=True):
-        # ── Quick-prompt chips (shown when toggled) ───────────────────────
+        # ── Quick-prompt banner (shown by default, toggled by ✕/💡) ──────
         if show:
-            st.markdown(
-                f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
-                f"letter-spacing:0.14em;color:{C.T4};margin:0 0 8px;font-family:{FONT};'>"
-                f"Try asking</p>",
-                unsafe_allow_html=True,
-            )
+            # Header row
+            h_label, h_close = st.columns([10, 1])
+            with h_label:
+                st.markdown(
+                    f"<p style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+                    f"letter-spacing:0.14em;color:{C.T4};margin:4px 0 6px;"
+                    f"font-family:{FONT};'>✦ Try asking</p>",
+                    unsafe_allow_html=True,
+                )
+            with h_close:
+                close_clicked = st.form_submit_button(
+                    "✕", key="fbar_close", use_container_width=True
+                )
+            # Chips — 3 per row
             chip_cols = st.columns(3)
             chip_clicked: dict[int, str] = {}
             for i, (chip_label, question) in enumerate(EXAMPLE_QUESTIONS):
                 with chip_cols[i % 3]:
                     if st.form_submit_button(
-                        chip_label,
-                        key=f"fbar_chip_{i}",
-                        use_container_width=True,
+                        chip_label, key=f"fbar_chip_{i}", use_container_width=True
                     ):
                         chip_clicked[i] = question
             st.markdown(
-                f"<div style='height:1px;background:{C.BORDER};margin:8px 0;'></div>",
+                f"<div style='height:1px;background:{C.BORDER};margin:8px 0 6px;'></div>",
                 unsafe_allow_html=True,
             )
         else:
             chip_clicked = {}
+            close_clicked = False
 
         # ── Input row ────────────────────────────────────────────────────
         c_bulb, c_input, c_send = st.columns([1, 9, 1])
         with c_bulb:
             toggle_clicked = st.form_submit_button(
-                "💡", help="Show quick prompts", use_container_width=True
+                "💡", help="Toggle quick prompts", use_container_width=True
             )
         with c_input:
             typed = st.text_input(
@@ -304,13 +296,14 @@ def _render_fixed_bar() -> None:
     # ── Handle submissions ────────────────────────────────────────────────
     if chip_clicked:
         question = next(iter(chip_clicked.values()))
-        st.session_state.nexus_show_prompts = False
+        st.session_state.nexus_show_prompts = True   # keep banner open after chip use
         _submit(question)
         st_rerun()
-    elif toggle_clicked:
-        st.session_state.nexus_show_prompts = not show
+    elif close_clicked or toggle_clicked:
+        # ✕ always closes; 💡 toggles
+        st.session_state.nexus_show_prompts = False if close_clicked else not show
         st_rerun()
     elif send_clicked and typed.strip():
-        st.session_state.nexus_show_prompts = False
+        st.session_state.nexus_show_prompts = True   # reopen for next question
         _submit(typed.strip())
         st_rerun()
