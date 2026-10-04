@@ -24,24 +24,51 @@ st.set_page_config(
 from ui.theme import GLOBAL_CSS, C, FONT, SHADOW_MD
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 
+# ── Floating chat bubble (decorative — shows chat is available) ───────────────
+# SiS blocks JS so the bubble is visual only; the real button is at top of sidebar
+_bubble_color = "#DC2626" if st.session_state.get("sidebar_mode") == "chat" else "#00C49A"
+_bubble_icon  = "✕" if st.session_state.get("sidebar_mode") == "chat" else "💬"
+_bubble_title = "Chat open — use sidebar" if st.session_state.get("sidebar_mode") == "chat" else "Click 💬 Ask NEXUS AI in the sidebar"
+st.markdown(
+    f"<div title='{_bubble_title}' style='"
+    f"position:fixed;bottom:28px;right:28px;z-index:9997;"
+    f"width:52px;height:52px;border-radius:50%;"
+    f"background:{_bubble_color};color:#fff;"
+    f"display:flex;align-items:center;justify-content:center;"
+    f"font-size:1.5rem;pointer-events:none;"
+    f"box-shadow:0 4px 20px rgba(0,0,0,0.18);"
+    f"transition:background 0.3s ease;'>"
+    f"{_bubble_icon}</div>",
+    unsafe_allow_html=True,
+)
+
 
 # ─── SIDEBAR — Interactive Scenario Controls ──────────────────────────────────
 from ui.theme import FONT as _FONT
 
+from components.chat import render_sidebar_input as _render_sidebar_input
+from components.scenario_controls import render_sidebar as _render_sidebar
+from ui.compat import st_rerun as _st_rerun
+
+if "sidebar_mode" not in st.session_state:
+    st.session_state.sidebar_mode = "controls"
+
+_chat_mode = st.session_state.sidebar_mode == "chat"
+
 with st.sidebar:
+    # ── Logo ──────────────────────────────────────────────────────────────
     st.markdown(
-        f"<div style='text-align:center;padding:8px 0 14px;font-family:{_FONT};'>"
+        f"<div style='text-align:center;padding:8px 0 10px;font-family:{_FONT};'>"
         f"<div style='font-size:1.2rem;font-weight:800;color:#0F172A;"
         f"letter-spacing:-0.02em;margin-bottom:4px;'>◆ NEXUS</div>"
         f"<div style='font-size:0.62rem;color:#94A3B8;text-transform:uppercase;"
         f"letter-spacing:0.15em;'>Supply Chain Intelligence</div></div>",
         unsafe_allow_html=True,
     )
-    # Powered by Snowflake badge
     st.markdown(
         "<div style='padding:8px 12px;background:rgba(0,196,154,0.06);"
         "border:1px solid rgba(0,196,154,0.22);border-radius:10px;"
-        "text-align:center;margin-bottom:10px;'>"
+        "text-align:center;margin-bottom:12px;'>"
         "<div style='font-size:0.58rem;font-weight:700;text-transform:uppercase;"
         "letter-spacing:0.12em;color:#007A5E;margin-bottom:2px;'>Powered by</div>"
         "<div style='font-size:0.95rem;font-weight:800;color:#007A5E;'>❄️ Snowflake</div>"
@@ -50,38 +77,35 @@ with st.sidebar:
         "</div>",
         unsafe_allow_html=True,
     )
-    st.markdown("---")
 
-# ── Sidebar: mode-aware rendering (Controls ↔ Chat) ──────────────────────────
-from components.chat import render_sidebar_input as _render_sidebar_input
-from components.scenario_controls import render_sidebar as _render_sidebar
-from ui.compat import st_rerun as _st_rerun
-
-if "sidebar_mode" not in st.session_state:
-    st.session_state.sidebar_mode = "controls"
-
-with st.sidebar:
-    if st.session_state.sidebar_mode == "controls":
-        # ── CONTROLS MODE ────────────────────────────────────────────────
-        _render_sidebar()          # scenario radio / dropdown / sliders
-        st.markdown("---")
+    # ── MODE TOGGLE — always at top, always visible ───────────────────────
+    if not _chat_mode:
         if st.button(
-            "💬  Ask NEXUS (AI Chat)",
+            "💬  Ask NEXUS AI",
             key="open_chat_mode",
             use_container_width=True,
-            help="Switch sidebar to AI chat mode",
+            help="Open AI chat panel",
         ):
             st.session_state.sidebar_mode = "chat"
             _st_rerun()
     else:
-        # ── CHAT MODE ────────────────────────────────────────────────────
-        if st.button("← Back to Controls", key="back_to_controls", use_container_width=True):
+        if st.button(
+            "✕  Close Chat · Back to Controls",
+            key="close_chat_mode",
+            use_container_width=True,
+        ):
             st.session_state.sidebar_mode = "controls"
             _st_rerun()
-        st.markdown("---")
-        _render_sidebar_input()
 
-    # Footer (always shown)
+    st.markdown("---")
+
+    # ── MODE CONTENT ──────────────────────────────────────────────────────
+    if not _chat_mode:
+        _render_sidebar()           # scenario controls
+    else:
+        _render_sidebar_input()     # full chat panel
+
+    # ── Footer ────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(
         "<a href='https://github.com/Harshahg20/nexus' target='_blank' "

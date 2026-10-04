@@ -306,15 +306,31 @@ hr {{
     box-shadow: 0 4px 14px rgba(0,196,154,0.45) !important;
 }}
 
-/* ── Sidebar: "💬 Ask NEXUS" toggle — teal accent ──────────────────────── */
+/* ── Sidebar: "💬 Ask NEXUS AI" — solid teal, always visible ─────────────── */
 [data-testid="stSidebar"] button[data-testid*="open_chat_mode"] {{
-    background: {C.TEAL_DIM} !important;
-    color: {C.TEAL_TEXT} !important;
-    border: 1px solid {C.TEAL_BORDER} !important;
+    background: {C.TEAL} !important;
+    color: #ffffff !important;
+    border: none !important;
     font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    box-shadow: 0 2px 10px rgba(0,196,154,0.35) !important;
 }}
 [data-testid="stSidebar"] button[data-testid*="open_chat_mode"]:hover {{
-    background: {C.TEAL} !important;
+    background: #00a880 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 16px rgba(0,196,154,0.5) !important;
+    transform: translateY(-1px) !important;
+}}
+
+/* ── Sidebar: "✕ Close Chat" — subtle red outline ───────────────────────── */
+[data-testid="stSidebar"] button[data-testid*="close_chat_mode"] {{
+    background: rgba(220,38,38,0.06) !important;
+    color: {C.RED} !important;
+    border: 1px solid rgba(220,38,38,0.22) !important;
+    font-weight: 600 !important;
+}}
+[data-testid="stSidebar"] button[data-testid*="close_chat_mode"]:hover {{
+    background: {C.RED} !important;
     color: #ffffff !important;
 }}
 
