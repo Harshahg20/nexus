@@ -88,8 +88,8 @@ def _render_supplier_controls() -> None:
     current_dur = int(current_params.get("DURATION_DAYS", 14) or 14) if current_params else 14
 
     st.markdown(
-        f"<div style='font-size:0.72rem;font-weight:700;color:#0F172A;"
-        f"margin-bottom:8px;font-family:{FONT};'>⚠ Supplier Failure</div>",
+        f"<div style='font-size:0.72rem;font-weight:700;color:{C.T2};"
+        f"margin-bottom:8px;font-family:{FONT};'>Supplier Failure</div>",
         unsafe_allow_html=True,
     )
 
@@ -182,8 +182,8 @@ def _render_port_controls() -> None:
     current_dur   = int(current_params.get("DURATION_DAYS", 7) or 7) if current_params else 7
 
     st.markdown(
-        f"<div style='font-size:0.72rem;font-weight:700;color:#0F172A;"
-        f"margin-bottom:8px;font-family:{FONT};'>🚢 Port Disruption</div>",
+        f"<div style='font-size:0.72rem;font-weight:700;color:{C.T2};"
+        f"margin-bottom:8px;font-family:{FONT};'>Port Disruption</div>",
         unsafe_allow_html=True,
     )
 

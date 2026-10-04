@@ -78,7 +78,7 @@ SHADOW_LG  = "0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)"
 # SAFE: no @import, targets Streamlit data-testid selectors only
 GLOBAL_CSS = f"""<style>
 
-/* ── Force light theme (works in SiS dark mode and localhost) ───────────── */
+/* ── Force light theme — main area ──────────────────────────────────────── */
 [data-testid="stApp"],
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"],
@@ -87,21 +87,48 @@ section[data-testid="stMain"],
     background-color: {C.BASE} !important;
     color: {C.T1} !important;
 }}
+
+/* ── Force light theme — sidebar (SiS uses dark by default) ─────────────── */
 [data-testid="stSidebar"],
-[data-testid="stSidebar"] > div:first-child {{
+section[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] > div > div,
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarUserContent"] {{
     background-color: {C.CARD} !important;
-    border-right: 1px solid {C.BORDER} !important;
+    color-scheme: light !important;
 }}
-/* Sidebar text/labels in light mode */
+
+/* Sidebar — all text must be dark/readable */
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] .stMarkdown p {{
-    color: {C.T3} !important;
+[data-testid="stSidebar"] span:not(.stMarkdown *),
+[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadio"] label,
+[data-testid="stSidebar"] [data-testid="stSelectbox"] div,
+[data-testid="stSidebar"] [data-testid="stSlider"] label,
+[data-testid="stSidebar"] [data-testid="stTextInput"] label {{
+    color: {C.T2} !important;
 }}
-[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMin"],
-[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMax"] {{
+
+/* Sidebar — slider tick labels */
+[data-testid="stSidebar"] [data-testid="stTickBarMin"],
+[data-testid="stSidebar"] [data-testid="stTickBarMax"] {{
     color: {C.T5} !important;
+}}
+
+/* Sidebar — widget backgrounds (selectbox, text input) */
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div,
+[data-testid="stSidebar"] [data-testid="stTextInput"] input {{
+    background-color: {C.BASE} !important;
+    color: {C.T1} !important;
+    border-color: {C.BORDER_MD} !important;
+}}
+
+/* Sidebar — radio option text specifically */
+[data-testid="stSidebar"] .stRadio > div label,
+[data-testid="stSidebar"] .stRadio span {{
+    color: {C.T2} !important;
 }}
 
 /* ── Typography ─────────────────────────────────────────────────────────── */
