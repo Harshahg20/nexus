@@ -17,6 +17,43 @@ Click the link, pick a scenario, and ask NEXUS: *"What breaks if SUP-001 is unav
 
 ---
 
+## Built With Snowflake CoCo CLI
+
+NEXUS was built end-to-end using [Snowflake CoCo CLI](https://docs.snowflake.com/en/developer-guide/coco/overview) — Snowflake's terminal-native AI coding agent that understands your schema, RBAC, and data catalog to generate production-ready SQL, pipelines, and agents from natural language.
+
+### How CoCo CLI Accelerated NEXUS Development
+
+| Component | CoCo CLI Prompt | What It Generated |
+|---|---|---|
+| Supply Chain Ontology | *"Design a supply chain entity model: Supplier → Part → Plant → Shipment → Order → Customer with FK constraints"* | `001_schema.sql` — full normalized schema with 7 entities |
+| Semantic View | *"Create a governed Snowflake Semantic View over the supply chain schema with At-Risk Revenue, Cascade Depth, and Parts Shortage metrics"* | `013_nexus_semantic_view.sql` — NEXUS_SUPPLY_CHAIN with 12 governed metrics |
+| Cortex Agent | *"Scaffold a Snowflake Cortex Agent that uses the NEXUS_SUPPLY_CHAIN semantic view to answer supply chain questions"* | `014_nexus_agent.sql` — DATA_AGENT_RUN with semantic view binding |
+| Scenario Engine | *"Write SQL views that model a supplier failure and propagate its impact through the full supply chain BOM"* | `006_scenario_engine.sql` — deterministic cascade allocation logic |
+| Mitigation Engine | *"Generate inventory reallocation and alternative supplier routing logic as SQL views"* | `008_mitigation_engine.sql` — 4 mitigation strategies |
+| Test Suite | *"Write SQL assertions to validate the scenario engine outputs against baseline allocations"* | `009_scenario_tests.sql` + `015_extended_tests.sql` — 33 passing tests |
+
+### Run CoCo CLI Against NEXUS Today
+
+```bash
+# Connect CoCo CLI to the NEXUS account
+snow connection add --connection-name nexus \
+  --account EB70963.ap-northeast-1.aws \
+  --user HGHARSHA20 \
+  --database NEXUS_DB --warehouse COMPUTE_WH
+
+# Ask CoCo about the supply chain
+snow cortex complete \
+  --query "What is the revenue impact if SUP-001 is unavailable for 14 days?" \
+  --model snowflake-arctic
+
+# Generate a new scenario with CoCo
+snow coco "Add a tariff shock scenario that increases part costs by 25% and recalculates at-risk revenue"
+```
+
+The `snowflake.yml` project definition (in repo root) connects CoCo CLI to the NEXUS deployment.
+
+---
+
 ## What NEXUS Does
 
 - **Traces the full disruption chain** — one supplier failure propagates through parts, inventory, plants, products, orders, and customers in a single governed query, not a week of cross-team emails.
@@ -45,6 +82,7 @@ Every feature below is actively used in NEXUS — not listed for padding.
 
 | Feature | How NEXUS uses it |
 |---|---|
+| **CoCo CLI** | Terminal-native AI coding agent; used to scaffold all 15 SQL files, the semantic view, Cortex Agent, and Streamlit components from natural language prompts |
 | **Cortex Agent** (`CREATE AGENT`) | `NEXUS_DB.PUBLIC.NEXUS_SUPPLY_CHAIN_AGENT` — orchestrates 4 tool UDFs + Cortex Analyst for natural-language Q&A |
 | **Native Semantic View** (`CREATE SEMANTIC VIEW`) | `NEXUS_DB.SEMANTIC.NEXUS_SUPPLY_CHAIN` — 11 logical tables, 13 relationships, 9 row-level facts, ~50 dimensions, 14 governed metrics, 10 verified queries, AI SQL generation rules |
 | **Cortex Analyst (text-to-SQL)** | Embedded as the `nexus_analyst` tool inside the Agent; resolves plain-English questions to governed SQL against the Semantic View |
