@@ -118,14 +118,30 @@ section[data-testid="stSidebar"],
     border-color: {C.TEAL} !important;
 }}
 
-/* Sidebar — selectbox dropdown: force light bg + dark text */
+/* Sidebar — selectbox dropdown: force light bg + dark text
+   Must target BaseWeb's data-baseweb="select" which Streamlit uses internally */
 [data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div,
 [data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div > div,
+[data-testid="stSidebar"] [data-baseweb="select"],
+[data-testid="stSidebar"] [data-baseweb="select"] > div,
+[data-testid="stSidebar"] [data-baseweb="select"] > div > div,
+[data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"],
+[data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] > div,
 [data-testid="stSidebar"] select,
 [data-testid="stSidebar"] [data-testid="stSelectbox"] span {{
     background-color: {C.BASE} !important;
     color: {C.T1} !important;
     border-color: {C.BORDER_MD} !important;
+}}
+/* BaseWeb select dropdown list (portal rendered outside sidebar) */
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="popover"] [data-baseweb="menu"] li,
+[data-baseweb="select-dropdown"] {{
+    background-color: {C.CARD} !important;
+    color: {C.T1} !important;
+}}
+[data-baseweb="popover"] [data-baseweb="menu"] [aria-selected="true"] {{
+    background-color: {C.TEAL_DIM} !important;
 }}
 
 /* Sidebar — text input */

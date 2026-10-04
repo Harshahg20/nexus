@@ -68,15 +68,15 @@ with st.sidebar:
     # GitHub link
     st.markdown(
         "<a href='https://github.com/Harshahg20/nexus' target='_blank' "
-        "style='display:block;padding:9px 14px;background:#0F172A;border-radius:10px;"
+        "style='display:block;padding:9px 14px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:10px;"
         "text-decoration:none;text-align:center;margin-bottom:10px;'>"
-        "<span style='font-size:0.75rem;font-weight:700;color:#ffffff;'>"
+        "<span style='font-size:0.75rem;font-weight:700;color:#0F172A;'>"
         "⬡ View on GitHub</span></a>",
         unsafe_allow_html=True,
     )
     st.markdown(
         "<div style='text-align:center;padding:8px 0 4px;'>"
-        "<div style='font-size:0.58rem;color:#CBD5E1;'>Snowflake CoCo CLI Hackathon 2026</div>"
+        "<div style='font-size:0.58rem;color:#64748B;'>Snowflake CoCo CLI Hackathon 2026</div>"
         "</div>",
         unsafe_allow_html=True,
     )
