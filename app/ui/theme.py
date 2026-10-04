@@ -273,8 +273,74 @@ hr {{
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
 }}
 
-/* ── Sidebar Ask NEXUS input ─────────────────────────────────────────────── */
-/* No position:fixed needed — sidebar is inherently always visible in SiS    */
+/* ── Sidebar: ALL buttons must be readable (light bg + dark text) ─────────── */
+[data-testid="stSidebar"] .stButton > button {{
+    background: {C.CARD} !important;
+    color: {C.T1} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 10px !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    text-align: center !important;
+}}
+[data-testid="stSidebar"] .stButton > button:hover {{
+    background: {C.TEAL_DIM} !important;
+    border-color: {C.TEAL_BORDER} !important;
+    color: {C.TEAL_TEXT} !important;
+}}
+
+/* ── Sidebar: "Send to NEXUS ▶" — teal primary button ──────────────────── */
+[data-testid="stSidebar"] button[data-testid*="sb_send"],
+[data-testid="stSidebar"] .stButton:has(button[data-testid*="sb_send"]) > button {{
+    background: {C.TEAL} !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(0,196,154,0.35) !important;
+}}
+[data-testid="stSidebar"] button[data-testid*="sb_send"]:hover {{
+    background: #00a880 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(0,196,154,0.45) !important;
+}}
+
+/* ── Sidebar: "💬 Ask NEXUS" toggle — teal accent ──────────────────────── */
+[data-testid="stSidebar"] button[data-testid*="open_chat_mode"] {{
+    background: {C.TEAL_DIM} !important;
+    color: {C.TEAL_TEXT} !important;
+    border: 1px solid {C.TEAL_BORDER} !important;
+    font-weight: 700 !important;
+}}
+[data-testid="stSidebar"] button[data-testid*="open_chat_mode"]:hover {{
+    background: {C.TEAL} !important;
+    color: #ffffff !important;
+}}
+
+/* ── Sidebar text input — force light + readable ────────────────────────── */
+[data-testid="stSidebar"] [data-testid="stTextInput"] label {{
+    color: {C.T2} !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stTextInput"] input {{
+    background: {C.CARD} !important;
+    color: {C.T1} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 10px !important;
+    font-size: 0.85rem !important;
+    caret-color: {C.TEAL} !important;
+}}
+[data-testid="stSidebar"] [data-testid="stTextInput"] input::placeholder {{
+    color: {C.T4} !important;
+    opacity: 1 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stTextInput"] input:focus {{
+    border-color: {C.TEAL} !important;
+    box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
+    outline: none !important;
+}}
 
 /* ── Fixed bar: input field ──────────────────────────────────────────────── */
 [data-testid="stTextInput"] input {{

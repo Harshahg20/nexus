@@ -52,31 +52,49 @@ with st.sidebar:
     )
     st.markdown("---")
 
-# ── Render interactive scenario controls in the sidebar ───────────────────────
+# ── Sidebar: mode-aware rendering (Controls ↔ Chat) ──────────────────────────
+from components.chat import render_sidebar_input as _render_sidebar_input
 from components.scenario_controls import render_sidebar as _render_sidebar
-_render_sidebar()
+from ui.compat import st_rerun as _st_rerun
 
-# ── Ask NEXUS sidebar panel (SiS: always visible, no CSS tricks needed) ──────
-with st.sidebar:
-    st.markdown("---")
-    from components.chat import render_sidebar_input as _render_sidebar_input
-    _render_sidebar_input()
+if "sidebar_mode" not in st.session_state:
+    st.session_state.sidebar_mode = "controls"
 
-# ── Sidebar footer ────────────────────────────────────────────────────────────
 with st.sidebar:
+    if st.session_state.sidebar_mode == "controls":
+        # ── CONTROLS MODE ────────────────────────────────────────────────
+        _render_sidebar()          # scenario radio / dropdown / sliders
+        st.markdown("---")
+        if st.button(
+            "💬  Ask NEXUS (AI Chat)",
+            key="open_chat_mode",
+            use_container_width=True,
+            help="Switch sidebar to AI chat mode",
+        ):
+            st.session_state.sidebar_mode = "chat"
+            _st_rerun()
+    else:
+        # ── CHAT MODE ────────────────────────────────────────────────────
+        if st.button("← Back to Controls", key="back_to_controls", use_container_width=True):
+            st.session_state.sidebar_mode = "controls"
+            _st_rerun()
+        st.markdown("---")
+        _render_sidebar_input()
+
+    # Footer (always shown)
     st.markdown("---")
-    # GitHub link
     st.markdown(
         "<a href='https://github.com/Harshahg20/nexus' target='_blank' "
-        "style='display:block;padding:9px 14px;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:10px;"
-        "text-decoration:none;text-align:center;margin-bottom:10px;'>"
+        "style='display:block;padding:9px 14px;background:#F1F5F9;"
+        "border:1px solid #CBD5E1;border-radius:10px;"
+        "text-decoration:none;text-align:center;margin-bottom:8px;'>"
         "<span style='font-size:0.75rem;font-weight:700;color:#0F172A;'>"
         "⬡ View on GitHub</span></a>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div style='text-align:center;padding:8px 0 4px;'>"
-        "<div style='font-size:0.58rem;color:#64748B;'>Snowflake CoCo CLI Hackathon 2026</div>"
+        "<div style='text-align:center;'>"
+        "<div style='font-size:0.56rem;color:#64748B;'>Snowflake CoCo CLI Hackathon 2026</div>"
         "</div>",
         unsafe_allow_html=True,
     )

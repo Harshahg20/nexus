@@ -27,12 +27,11 @@ _AGENT_NOTE = (
 
 def render_sidebar_input() -> None:
     """
-    Sidebar Ask NEXUS panel — rendered at the bottom of the sidebar.
-    Works in ALL Streamlit / SiS versions (no st.form, no position:fixed).
-    Always visible because the sidebar itself is always visible.
+    Full-sidebar Ask NEXUS chat panel.
+    Called when sidebar_mode == 'chat'. Works in all SiS Streamlit versions.
     """
     if hasattr(st, "chat_input"):
-        return  # Modern Streamlit: chat_input auto-pins to bottom of main area
+        return  # Modern Streamlit handles this via st.chat_input in main area
 
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
@@ -41,42 +40,84 @@ def render_sidebar_input() -> None:
     if "sb_show_prompts" not in st.session_state:
         st.session_state.sb_show_prompts = True
 
-    # ── Header ───────────────────────────────────────────────────────────
+    # ── Title ────────────────────────────────────────────────────────────
     st.markdown(
-        f"<div style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.14em;color:{C.TEAL};margin-bottom:8px;"
-        f"font-family:{FONT};'>💬 Ask NEXUS</div>",
+        f"<div style='font-size:1rem;font-weight:800;color:{C.T1};"
+        f"margin-bottom:4px;font-family:{FONT};'>"
+        f"Ask <span style='color:{C.TEAL};'>NEXUS</span></div>"
+        f"<div style='font-size:0.72rem;color:{C.T3};margin-bottom:12px;"
+        f"font-family:{FONT};'>Powered by Snowflake Cortex AI</div>",
         unsafe_allow_html=True,
     )
 
-    # ── Input row: text + send button ────────────────────────────────────
-    c_in, c_btn = st.columns([5, 1])
-    with c_in:
-        query = st.text_input(
-            "sb_query",
-            placeholder="Ask anything…",
-            label_visibility="collapsed",
-            key=f"sb_input_{st.session_state.sb_ver}",
+    # ── Input row ────────────────────────────────────────────────────────
+    query = st.text_input(
+        "Ask anything about your supply chain…",
+        placeholder="e.g. What breaks if SUP-001 fails?",
+        label_visibility="visible",
+        key=f"sb_input_{st.session_state.sb_ver}",
+    )
+    # Full-width send button styled teal via CSS class workaround
+    send_col, _ = st.columns([3, 1])
+    with send_col:
+        send_hit = st.button(
+            "Send to NEXUS ▶",
+            key="sb_send",
+            use_container_width=True,
         )
-    with c_btn:
-        if st.button("▶", key="sb_send", help="Send"):
-            if query and query.strip():
-                st.session_state.sb_ver += 1
-                _submit(query.strip())
-                st_rerun()
+    if send_hit and query and query.strip():
+        st.session_state.sb_ver += 1
+        _submit(query.strip())
+        st_rerun()
 
-    # ── Quick prompts toggle ──────────────────────────────────────────────
+    st.markdown(
+        f"<div style='height:1px;background:{C.BORDER};margin:12px 0 8px;'></div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Quick prompts ─────────────────────────────────────────────────────
     show = st.session_state.sb_show_prompts
-    toggle_label = "▲ Hide prompts" if show else "▼ Try asking…"
-    if st.button(toggle_label, key="sb_toggle"):
+    if st.button(
+        "▲ Hide example prompts" if show else "▼ Show example prompts",
+        key="sb_toggle",
+        use_container_width=True,
+    ):
         st.session_state.sb_show_prompts = not show
         st_rerun()
 
     if show:
+        st.markdown(
+            f"<div style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+            f"letter-spacing:0.12em;color:{C.T4};margin:8px 0 6px;"
+            f"font-family:{FONT};'>Try asking</div>",
+            unsafe_allow_html=True,
+        )
         for chip_label, question in EXAMPLE_QUESTIONS:
-            if st.button(chip_label, key=f"sb_chip_{chip_label[:12]}"):
+            if st.button(chip_label, key=f"sb_chip_{chip_label[:14]}", use_container_width=True):
                 _submit(question)
                 st_rerun()
+
+    # ── Recent chat history (last 4 messages) ────────────────────────────
+    msgs = st.session_state.chat_messages[-4:] if st.session_state.chat_messages else []
+    if msgs:
+        st.markdown(
+            f"<div style='height:1px;background:{C.BORDER};margin:12px 0 8px;'></div>"
+            f"<div style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+            f"letter-spacing:0.12em;color:{C.T4};margin-bottom:6px;"
+            f"font-family:{FONT};'>Recent</div>",
+            unsafe_allow_html=True,
+        )
+        for msg in msgs:
+            icon = "🧑" if msg["role"] == "user" else "🤖"
+            # Truncate long answers to 120 chars in sidebar
+            text = msg["content"][:120] + "…" if len(msg["content"]) > 120 else msg["content"]
+            st.markdown(
+                f"<div style='font-size:0.75rem;color:{C.T2};padding:4px 0;"
+                f"border-left:2px solid {C.TEAL if msg['role']=='assistant' else C.BORDER_MD};"
+                f"padding-left:8px;margin-bottom:6px;font-family:{FONT};'>"
+                f"{icon} {text}</div>",
+                unsafe_allow_html=True,
+            )
 
 
 def render():
