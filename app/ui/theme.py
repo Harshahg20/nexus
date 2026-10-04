@@ -273,6 +273,65 @@ hr {{
     box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
 }}
 
+/* ── SiS inline chat form — looks like st.chat_input ────────────────────── */
+[data-testid="stForm"] {{
+    background: {C.CARD} !important;
+    border: 1px solid {C.BORDER_MD} !important;
+    border-radius: 14px !important;
+    padding: 2px 4px 2px 8px !important;
+    box-shadow: {SHADOW_SM} !important;
+}}
+[data-testid="stForm"]:focus-within {{
+    border-color: {C.TEAL} !important;
+    box-shadow: 0 0 0 3px {C.TEAL_DIM} !important;
+}}
+/* Input field inside the form */
+[data-testid="stForm"] input[type="text"],
+[data-testid="stForm"] input {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: {C.T1} !important;
+    font-size: 0.95rem !important;
+    font-family: {FONT} !important;
+    caret-color: {C.TEAL} !important;
+    outline: none !important;
+    padding: 10px 0 !important;
+}}
+[data-testid="stForm"] input::placeholder {{
+    color: {C.T5} !important;
+    opacity: 1 !important;
+}}
+/* Focus border on the input itself — suppress default blue ring */
+[data-testid="stForm"] input:focus {{
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}}
+/* Send button — teal circle like st.chat_input send button */
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button,
+[data-testid="stForm"] button[kind="formSubmit"] {{
+    background: {C.TEAL} !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+    min-height: 42px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(0,196,154,0.35) !important;
+    transition: background 0.18s ease, transform 0.15s ease !important;
+    width: 100% !important;
+    text-align: center !important;
+}}
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {{
+    background: #00a880 !important;
+    transform: scale(1.06) !important;
+    box-shadow: 0 4px 14px rgba(0,196,154,0.45) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+}}
+
 /* ── Chip / action buttons ───────────────────────────────────────────────── */
 .stButton > button {{
     background: {C.CARD} !important;

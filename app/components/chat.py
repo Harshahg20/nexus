@@ -101,9 +101,9 @@ def render():
             st.markdown(f"{prefix}: {msg['content']}")
             st.divider()
 
-    # ── Input — chat_input (modern Streamlit, auto-pins to bottom) ────────────
-    # SiS fallback: input is in the sidebar via render_sidebar_input() above.
+    # ── Input ────────────────────────────────────────────────────────────────
     if hasattr(st, "chat_input"):
+        # Modern Streamlit / localhost: auto-pins to bottom of page
         if prompt := st.chat_input("Ask NEXUS about your supply chain…"):
             stripped = prompt.strip()
             if stripped:
@@ -111,10 +111,24 @@ def render():
             else:
                 st_toast("Please enter a question before submitting.", icon="✏️")
     else:
-        st.caption(
-            "Use the **Ask NEXUS** input in the sidebar (always visible) "
-            "or click a quick-question chip above."
+        # SiS fallback: inline styled form that looks like the chat bar
+        st.markdown(
+            f"<div style='height:1px;background:{C.BORDER};margin:12px 0 16px;'></div>",
+            unsafe_allow_html=True,
         )
+        with st.form("nexus_inline_chat_form", clear_on_submit=True):
+            c_input, c_btn = st.columns([9, 1])
+            with c_input:
+                prompt_text = st.text_input(
+                    "chat_input",
+                    placeholder="Ask NEXUS about your supply chain…",
+                    label_visibility="collapsed",
+                )
+            with c_btn:
+                submitted = st.form_submit_button("▶", use_container_width=True)
+        if submitted and prompt_text.strip():
+            _submit(prompt_text.strip())
+            st_rerun()
 
     # ── Provenance note ───────────────────────────────────────────────────────
     st.caption(_AGENT_NOTE)
